@@ -1,0 +1,7 @@
+# referral_codes.txt
+# Format: code (one per line)
+#
+# Examples:
+# abc123def
+# xyz789ghi
+

@@ -1,0 +1,7 @@
+# login_accounts.txt
+# Format: email:password (one account per line)
+#
+# Examples:
+# john.doe@gmail.com:MyPassword123
+# jane@icloud.com:SecurePass456
+

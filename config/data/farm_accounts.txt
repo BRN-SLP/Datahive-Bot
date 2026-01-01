@@ -1,0 +1,8 @@
+# farm_accounts.txt
+# Format: email (one per line)
+# Leave empty to farm ALL accounts from database
+#
+# Examples:
+# john.doe@gmail.com
+# jane@icloud.com
+

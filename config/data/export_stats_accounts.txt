@@ -1,0 +1,8 @@
+# export_stats_accounts.txt
+# Format: email (one per line)
+# Leave empty to export ALL accounts from database
+#
+# Examples:
+# john.doe@gmail.com
+# jane@icloud.com
+
