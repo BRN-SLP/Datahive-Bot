@@ -243,6 +243,6 @@ class FarmTask:
         return {
             'result': step_outputs,
             'metadata': perf_metrics,
-            'context': context or {}
+            'context': 'extension'
         }
 
