@@ -41,6 +41,7 @@ retry:
   max_registration_attempts: 5  # Maximum registration attempts
   max_farm_attempts: 5  # Maximum farm attempts
   proxy_rotation: true  # Enable proxy rotation on exhausted retries
+  proxy_rotation_after_timeouts: 3  # Rotate proxy after N consecutive timeouts (0 = disabled)
 
 # Misc settings
 shuffle_accounts: true # shuffle accounts before starting the module

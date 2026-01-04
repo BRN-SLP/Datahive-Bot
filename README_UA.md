@@ -93,12 +93,18 @@ referral_code_settings:
   static_referral_code: ""  # Використовується при source: "static"
 ```
 
-### Затримки
+### Затримки та повтори
 
 ```yaml
 delay_before_start:
   min: 60
   max: 180
+
+retry:
+  delay_seconds: 10
+  max_registration_attempts: 5
+  proxy_rotation: true
+  proxy_rotation_after_timeouts: 3  # Ротація проксі після N таймаутів поспіль
 ```
 
 ### Редірект пошти (опціонально)

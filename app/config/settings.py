@@ -113,6 +113,11 @@ class DatahiveSettings:
         return self.data.get("retry", {}).get("proxy_rotation", True)
     
     @property
+    def proxy_rotation_after_timeouts(self) -> int:
+        """Number of consecutive timeouts before proxy rotation (0 = disabled)"""
+        return self.data.get("retry", {}).get("proxy_rotation_after_timeouts", 3)
+    
+    @property
     def multiprocess_farming_enabled(self) -> bool:
         """Whether multiprocess farming is enabled"""
         return self.data.get("multiprocess_farming", {}).get("enabled", True)

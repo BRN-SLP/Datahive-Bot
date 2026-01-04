@@ -35,6 +35,7 @@ class FarmProcessor:
         self.settings = get_settings()
         self.proxy_manager = get_proxy_manager()
         self.total_accounts = len(accounts)
+        self.device_timeout_counts: Dict[str, int] = {}  # Track consecutive timeouts per device
     
     @staticmethod
     def _batched(seq, n):
@@ -271,6 +272,66 @@ class FarmProcessor:
                 logger.error(f'Process: {process_id} | Unknown error while farming with invalid account: {error}')
             return None
     
+    async def _handle_device_timeout(self, device: Device, device_task_timeout: int):
+        """Handle device timeout with proxy rotation after N consecutive timeouts"""
+        device_id = device.device_id
+        
+        # Increment timeout counter
+        self.device_timeout_counts[device_id] = self.device_timeout_counts.get(device_id, 0) + 1
+        timeout_count = self.device_timeout_counts[device_id]
+        
+        try:
+            account = await device.account
+            account_email = account.email if account else "unknown"
+        except Exception:
+            account_email = "unknown"
+        
+        rotation_threshold = self.settings.proxy_rotation_after_timeouts
+        
+        # Check if we should rotate proxy
+        if rotation_threshold > 0 and timeout_count >= rotation_threshold and self.settings.proxy_rotation_enabled:
+            try:
+                old_proxy = device.active_device_proxy
+                new_proxy = await self.proxy_manager.get_proxy()
+                
+                if new_proxy and new_proxy != old_proxy:
+                    # Release old proxy back to pool
+                    if old_proxy:
+                        await self.proxy_manager.release_proxy(old_proxy)
+                    
+                    # Update device and account with new proxy
+                    await device.update_device_proxy(new_proxy)
+                    if account_email != "unknown":
+                        try:
+                            account = await device.account
+                            if account:
+                                await account.update_proxy(new_proxy)
+                        except Exception:
+                            pass
+                    
+                    # Reset timeout counter
+                    self.device_timeout_counts[device_id] = 0
+                    
+                    logger.warning(
+                        f'Process: {self.process_id} | Account: {account_email} | Device: {device_id} | '
+                        f'Farming task timed out ({device_task_timeout}s) x{timeout_count} - proxy rotated'
+                    )
+                else:
+                    logger.error(
+                        f'Process: {self.process_id} | Account: {account_email} | Device: {device_id} | '
+                        f'Farming task timed out ({device_task_timeout}s) x{timeout_count} - no new proxy available'
+                    )
+            except Exception as e:
+                logger.error(
+                    f'Process: {self.process_id} | Account: {account_email} | Device: {device_id} | '
+                    f'Farming task timed out ({device_task_timeout}s) x{timeout_count} - proxy rotation failed: {e}'
+                )
+        else:
+            logger.error(
+                f'Process: {self.process_id} | Account: {account_email} | Device: {device_id} | '
+                f'Farming task timed out ({device_task_timeout}s) [{timeout_count}/{rotation_threshold}]'
+            )
+    
     async def _run_device_farming(
         self,
         device: Device,
@@ -286,18 +347,11 @@ class FarmProcessor:
                         self.schedule_device_farming(device, self.process_id),
                         timeout=device_task_timeout
                     )
+                    # Reset timeout counter on success
+                    if device.device_id in self.device_timeout_counts:
+                        del self.device_timeout_counts[device.device_id]
                 except asyncio.TimeoutError:
-                    try:
-                        account = await device.account
-                        logger.error(
-                            f'Process: {self.process_id} | Account: {account.email} | Device: {device.device_id} | '
-                            f'Farming task timed out ({device_task_timeout}s)'
-                        )
-                    except Exception:
-                        logger.error(
-                            f'Process: {self.process_id} | Device: {device.device_id} | '
-                            f'Farming task timed out ({device_task_timeout}s), account fetch failed'
-                        )
+                    await self._handle_device_timeout(device, device_task_timeout)
         except Exception as error:
             try:
                 account = await device.account

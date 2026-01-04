@@ -123,6 +123,7 @@ retry:
   delay_seconds: 10
   max_registration_attempts: 5
   proxy_rotation: true
+  proxy_rotation_after_timeouts: 3  # Rotate proxy after N consecutive timeouts
 ```
 
 ### Email Redirect (Optional)
