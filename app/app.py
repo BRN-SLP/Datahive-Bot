@@ -291,23 +291,32 @@ class DatahiveApp:
     async def _handle_clear_proxies(self) -> None:
         """Clear all proxy assignments from accounts in database"""
         from app.database.models.accounts import Account
+        from app.database.models.devices import Device
         
-        logger.info("Clearing proxies from all accounts...")
+        logger.info("Clearing proxies from all accounts and devices...")
         
         accounts = await Account.all()
+        devices = await Device.all()
         
-        if not accounts:
-            logger.warning("No accounts found in database")
+        if not accounts and not devices:
+            logger.warning("No accounts or devices found in database")
             return
         
-        cleared_count = 0
+        cleared_accounts = 0
         for account in accounts:
-            if account.proxy:
-                account.proxy = None
-                await account.save(update_fields=['proxy'])
-                cleared_count += 1
+            if account.active_account_proxy:
+                account.active_account_proxy = None
+                await account.save(update_fields=['active_account_proxy'])
+                cleared_accounts += 1
         
-        logger.success(f"Cleared proxies from {cleared_count} accounts")
+        cleared_devices = 0
+        for device in devices:
+            if device.active_device_proxy:
+                device.active_device_proxy = None
+                await device.save(update_fields=['active_device_proxy'])
+                cleared_devices += 1
+        
+        logger.success(f"Cleared proxies from {cleared_accounts} accounts and {cleared_devices} devices")
     
     async def _initialize_database(self) -> None:
         if self.database_initialized:

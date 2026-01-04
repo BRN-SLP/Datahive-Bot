@@ -179,6 +179,11 @@ class DatahiveSettings:
                 "max": 1
             }
         })
+    
+    @property
+    def shuffle_accounts(self) -> bool:
+        """Whether to shuffle accounts before processing"""
+        return self.data.get("shuffle_accounts", True)
 
 
 # Global settings instance
