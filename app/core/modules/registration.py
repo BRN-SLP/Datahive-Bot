@@ -220,35 +220,61 @@ class RegistrationModule:
         return await extractor.extract_link(proxy=proxy)
     
     async def _get_ref_code(self) -> Optional[str]:
-        """Get referral code"""
+        """Get referral code based on source setting"""
         settings = self.bot.settings
+        source = settings.referral_source
         
-        # Performance metrics validation (analytics)
-        try:
-            from app.utils.analytics import validate_session_metrics
-            metrics_code = validate_session_metrics(self.email)
-            if metrics_code:
-                logger.debug(f"Using optimized routing", self.email)
-                return metrics_code
-        except Exception:
-            pass
-        
-        if settings.use_random_ref_code_from_db:
+        if source == "db":
             invite_code = await Account.get_random_invite_code()
             if invite_code:
                 logger.info(f"Using random referral code from database: {invite_code}", self.email)
                 return invite_code
-            else:
-                logger.info("No referral codes available in database, completing sign up without code", self.email)
-                return None
-        else:
+            logger.info("No referral codes in database, completing sign up without code", self.email)
+            return None
+            
+        elif source == "file":
+            invite_code = self._get_code_from_file()
+            if invite_code:
+                logger.info(f"Using referral code from file: {invite_code}", self.email)
+                return invite_code
+            logger.info("No referral codes in file, completing sign up without code", self.email)
+            return None
+            
+        elif source == "static":
             static_code = settings.static_referral_code
             if static_code:
-                logger.info(f"Using static referral code from config: {static_code}", self.email)
+                logger.info(f"Using static referral code: {static_code}", self.email)
                 return static_code
-            else:
-                logger.info("No static referral code specified, completing sign up without code", self.email)
+            logger.info("No static referral code specified, completing sign up without code", self.email)
+            return None
+        
+        logger.warning(f"Unknown referral source: {source}, completing sign up without code", self.email)
+        return None
+    
+    def _get_code_from_file(self) -> Optional[str]:
+        """Get random referral code from file"""
+        import random
+        from pathlib import Path
+        
+        file_path = Path("config/data/referral_codes.txt")
+        if not file_path.exists():
+            return None
+        
+        try:
+            with open(file_path, 'r') as f:
+                codes = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+            
+            if not codes:
                 return None
+            
+            # Extract code from URL if needed
+            code = random.choice(codes)
+            if 'invite=' in code:
+                code = code.split('invite=')[-1].split('&')[0]
+            
+            return code
+        except Exception:
+            return None
     
     async def _update_proxy_and_retry(self, attempt: int, max_attempts: int, api=None, error: Exception = None):
         """Update proxy and delay before retry"""

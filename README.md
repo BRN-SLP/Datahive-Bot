@@ -38,9 +38,11 @@ sudo systemctl start postgresql && sudo systemctl enable postgresql
 ```
 
 **Create database:**
+
 ```bash
 sudo -u postgres psql
 ```
+
 ```sql
 CREATE USER <YOUR_USER> WITH PASSWORD '<YOUR_PASSWORD>';
 CREATE DATABASE <YOUR_DB> OWNER <YOUR_USER>;
@@ -49,6 +51,7 @@ GRANT ALL PRIVILEGES ON DATABASE <YOUR_DB> TO <YOUR_USER>;
 ```
 
 **Install bot:**
+
 ```bash
 git clone https://github.com/BRN-SLP/Datahive-Bot.git
 cd Datahive-Bot
@@ -68,12 +71,14 @@ See [VPS_SETUP.md](VPS_SETUP.md) for detailed instructions.
 Edit `config/config.yaml`:
 
 ### Database
+
 ```yaml
 application_settings:
   database_url: "postgres://<USER>:<PASSWORD>@localhost:5432/<DATABASE>"
 ```
 
 ### Threading
+
 ```yaml
 threads:
   registration: 1   # MUST BE 1 (rate limit protection)
@@ -81,6 +86,7 @@ threads:
 ```
 
 ### Multiprocess Farming
+
 ```yaml
 multiprocess_farming:
   enabled: true       # Enable multiprocess mode
@@ -88,6 +94,7 @@ multiprocess_farming:
 ```
 
 ### Farm Settings
+
 ```yaml
 farm_settings:
   max_devices_per_batch: 600
@@ -96,13 +103,17 @@ farm_settings:
 ```
 
 ### Referral Codes
+
 ```yaml
 referral_code_settings:
-  use_random_ref_code_from_db: true  # Random from DB
-  static_referral_code: ""            # Or set specific code
+  source: "db"              # "db" = random from database
+                            # "file" = random from referral_codes.txt
+                            # "static" = use static_referral_code
+  static_referral_code: ""  # Used when source: "static"
 ```
 
 ### Delays & Retry
+
 ```yaml
 delay_before_start:
   min: 60
@@ -115,6 +126,7 @@ retry:
 ```
 
 ### Email Redirect (Optional)
+
 ```yaml
 redirect_settings:
   enable: false
@@ -124,6 +136,7 @@ redirect_settings:
 ```
 
 ### IMAP Settings
+
 ```yaml
 imap_settings:
   use_proxy_for_imap: false
@@ -158,6 +171,7 @@ python main.py
 ```
 
 **Menu:**
+
 - `Login accounts` - Register new accounts
 - `Farm accounts` - Start farming
 - `Export stats` - Export to CSV (results/stats/)
@@ -226,4 +240,3 @@ farm_settings:
 **Result:** `100 threads × 3 processes = 300 parallel tasks`
 
 > ⚠️ **Important:** `registration` must ALWAYS be `1` with delay ≥60 seconds to avoid rate limits!
-

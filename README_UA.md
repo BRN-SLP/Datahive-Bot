@@ -37,6 +37,7 @@ sudo systemctl start postgresql && sudo systemctl enable postgresql
 ```
 
 **База даних:**
+
 ```sql
 CREATE USER <ВАШ_ЮЗЕР> WITH PASSWORD '<ВАШ_ПАРОЛЬ>';
 CREATE DATABASE <ВАША_БД> OWNER <ВАШ_ЮЗЕР>;
@@ -44,6 +45,7 @@ GRANT ALL PRIVILEGES ON DATABASE <ВАША_БД> TO <ВАШ_ЮЗЕР>;
 ```
 
 **Бот:**
+
 ```bash
 git clone https://github.com/BRN-SLP/Datahive-Bot.git && cd Datahive-Bot
 python3 -m venv venv && source venv/bin/activate
@@ -59,12 +61,14 @@ pip3 install --upgrade pip && pip3 install -r requirements.txt
 ## ⚙️ Налаштування (config/config.yaml)
 
 ### База даних
+
 ```yaml
 application_settings:
   database_url: "postgres://<ЮЗЕР>:<ПАРОЛЬ>@localhost:5432/<БД>"
 ```
 
 ### Потоки
+
 ```yaml
 threads:
   registration: 1   # ОБОВ.ЯЗКОВО 1 (захист від rate limit)
@@ -72,6 +76,7 @@ threads:
 ```
 
 ### Мультипроцесинг
+
 ```yaml
 multiprocess_farming:
   enabled: true
@@ -79,13 +84,17 @@ multiprocess_farming:
 ```
 
 ### Реферальні коди
+
 ```yaml
 referral_code_settings:
-  use_random_ref_code_from_db: true
-  static_referral_code: ""
+  source: "db"              # "db" = випадковий з БД
+                            # "file" = випадковий з referral_codes.txt
+                            # "static" = використовувати static_referral_code
+  static_referral_code: ""  # Використовується при source: "static"
 ```
 
 ### Затримки
+
 ```yaml
 delay_before_start:
   min: 60
@@ -93,6 +102,7 @@ delay_before_start:
 ```
 
 ### Редірект пошти (опціонально)
+
 ```yaml
 redirect_settings:
   enable: false
@@ -122,6 +132,7 @@ python main.py
 ```
 
 **Меню:**
+
 - `Login accounts` - Реєстрація
 - `Farm accounts` - Фармінг
 - `Export stats` - Експорт CSV

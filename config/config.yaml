@@ -28,8 +28,8 @@ device_settings:
 
 # Referral code settings (Datahive)
 referral_code_settings:
-  use_random_ref_code_from_db: true  # true = use random from database, false = use static code
-  static_referral_code: ""  # Static referral code to use (if empty, registration will proceed without referral code)
+  source: "db"  # "db" = random from database, "file" = random from referral_codes.txt, "static" = use static_referral_code
+  static_referral_code: ""  # Used when source: "static" (if empty, registration proceeds without referral code)
 
 delay_before_start:
   min: 60  # MINIMUM 60 seconds! Lower values cause rate limits

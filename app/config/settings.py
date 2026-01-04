@@ -86,9 +86,15 @@ class DatahiveSettings:
         return self.data.get("referral_code_settings", {})
     
     @property
-    def use_random_ref_code_from_db(self) -> bool:
-        """Use random referral code from database"""
-        return self.referral_code_settings.get("use_random_ref_code_from_db", True)
+    def referral_source(self) -> str:
+        """Referral code source: 'db', 'file', or 'static'"""
+        # New format
+        if "source" in self.referral_code_settings:
+            return self.referral_code_settings.get("source", "db")
+        # Backward compatibility with old format
+        if self.referral_code_settings.get("use_random_ref_code_from_db", True):
+            return "db"
+        return "static"
     
     @property
     def static_referral_code(self) -> Optional[str]:
