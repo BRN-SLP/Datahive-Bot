@@ -1,5 +1,6 @@
+import re
 from functools import wraps
-from typing import Optional
+from typing import Optional, Tuple
 
 from app.api.base import BaseAPIClient
 from app.core.exceptions import APIError
@@ -7,6 +8,73 @@ from app.database.models.devices import Device
 from app.utils.logging import get_logger
 
 logger = get_logger()
+
+
+def parse_user_agent(user_agent: str) -> Tuple[str, str, str]:
+    """
+    Parse UserAgent to extract device info matching Chrome extension format.
+    Returns: (device_name, device_model, device_os)
+    """
+    # Detect OS and version
+    device_os = "Windows 10"
+    if "Windows NT 10.0" in user_agent:
+        device_os = "Windows 10"
+    elif "Windows NT 11.0" in user_agent:
+        device_os = "Windows 11"
+    elif "Macintosh" in user_agent or "Mac OS X" in user_agent:
+        mac_match = re.search(r'Mac OS X (\d+[._]\d+)', user_agent)
+        if mac_match:
+            version = mac_match.group(1).replace('_', '.')
+            device_os = f"macOS {version}"
+        else:
+            device_os = "macOS"
+    elif "Linux" in user_agent:
+        device_os = "Linux"
+    elif "CrOS" in user_agent:
+        device_os = "Chrome OS"
+    
+    # Detect device type/name
+    if "CrOS" in user_agent:
+        device_name = "chromebook"
+    elif "Macintosh" in user_agent:
+        device_name = "mac"
+    elif "Windows" in user_agent:
+        device_name = "windows pc"
+    elif "Linux" in user_agent:
+        device_name = "linux pc"
+    else:
+        device_name = "desktop"
+    
+    # Detect browser and version
+    browser_name = "Chrome"
+    browser_version = ""
+    
+    # Check for Edge first (contains Chrome in UA)
+    edge_match = re.search(r'Edg(?:e|A)?/(\d+)', user_agent)
+    if edge_match:
+        browser_name = "Edge"
+        browser_version = edge_match.group(1)
+    # Check for Opera
+    elif "OPR/" in user_agent:
+        opr_match = re.search(r'OPR/(\d+)', user_agent)
+        if opr_match:
+            browser_name = "Opera"
+            browser_version = opr_match.group(1)
+    # Check for Chrome
+    else:
+        chrome_match = re.search(r'Chrome/(\d+)', user_agent)
+        if chrome_match:
+            browser_name = "Chrome"
+            browser_version = chrome_match.group(1)
+    
+    # Build device_model: "PC x86_64 - Chrome 137" format
+    arch = "x86_64"  # Default for all our user agents
+    if browser_version:
+        device_model = f"PC {arch} - {browser_name} {browser_version}"
+    else:
+        device_model = f"PC {arch} - {browser_name}"
+    
+    return device_name, device_model, device_os
 
 
 def require_auth_token(func):
@@ -154,6 +222,9 @@ class DatahiveAPI(BaseAPIClient):
     @require_auth_token
     async def send_ping(self, device: Device):
         """Send ping with device information"""
+        # Parse UserAgent to get dynamic device info
+        device_name, device_model, device_os = parse_user_agent(device.user_agent)
+        
         headers = {
             'Accept': '*/*',
             'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -167,9 +238,9 @@ class DatahiveAPI(BaseAPIClient):
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
             'x-device-id': device.device_id,
-            'x-device-model': getattr(device, 'device_model', None) or 'Windows Desktop',
-            'x-device-name': getattr(device, 'device_name', None) or 'Chrome Extension',
-            'x-device-os': device.device_os,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
             'x-device-type': 'extension',
             'x-s': 'n',
             'x-user-agent': device.user_agent,
@@ -184,6 +255,9 @@ class DatahiveAPI(BaseAPIClient):
     @require_auth_token
     async def request_task(self, device: Device):
         """Request task for execution (API endpoint uses 'job')"""
+        # Parse UserAgent to get dynamic device info
+        device_name, device_model, device_os = parse_user_agent(device.user_agent)
+        
         headers = {
             'Accept': '*/*',
             'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -196,9 +270,9 @@ class DatahiveAPI(BaseAPIClient):
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
             'x-device-id': device.device_id,
-            'x-device-model': getattr(device, 'device_model', None) or 'Windows Desktop',
-            'x-device-name': getattr(device, 'device_name', None) or 'Chrome Extension',
-            'x-device-os': device.device_os,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
             'x-device-type': 'extension',
             'x-s': 'n',
             'x-user-agent': device.user_agent,
@@ -213,6 +287,9 @@ class DatahiveAPI(BaseAPIClient):
     @require_auth_token
     async def complete_task(self, device: Device, task_id: str, json_data: dict):
         """Complete task execution (API endpoint uses 'job')"""
+        # Parse UserAgent to get dynamic device info
+        device_name, device_model, device_os = parse_user_agent(device.user_agent)
+        
         headers = {
             'Accept': '*/*',
             'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
@@ -226,9 +303,9 @@ class DatahiveAPI(BaseAPIClient):
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
             'x-device-id': device.device_id,
-            'x-device-model': getattr(device, 'device_model', None) or 'Windows Desktop',
-            'x-device-name': getattr(device, 'device_name', None) or 'Chrome Extension',
-            'x-device-os': device.device_os,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
             'x-device-type': 'extension',
             'x-s': 'n',
             'x-user-agent': device.user_agent,
