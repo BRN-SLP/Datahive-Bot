@@ -242,7 +242,7 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-name': device_name,
             'x-device-os': device_os,
             'x-device-type': 'extension',
-            'x-s': 'n',
+            'x-s': 'f',
             'x-user-agent': device.user_agent,
             'x-user-language': 'uk-UA'
         }
@@ -274,7 +274,7 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-name': device_name,
             'x-device-os': device_os,
             'x-device-type': 'extension',
-            'x-s': 'n',
+            'x-s': 'f',
             'x-user-agent': device.user_agent,
             'x-user-language': 'uk-UA'
         }
@@ -307,7 +307,7 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-name': device_name,
             'x-device-os': device_os,
             'x-device-type': 'extension',
-            'x-s': 'n',
+            'x-s': 'f',
             'x-user-agent': device.user_agent,
             'x-user-language': 'uk-UA'
         }
