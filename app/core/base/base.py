@@ -296,9 +296,15 @@ class Bot:
         if task_data:
             logger.info(f'{prefix_text}Received task, processing')
             task_id = task_data.get('id')
-            yaml_rules = task_data.get('ruleCollection').get('yamlRules')
-            target_url = task_data.get('vars').get('url')
-            request_timeout = task_data.get('vars').get('timeout')
+            rule_collection = task_data.get('ruleCollection') or {}
+            yaml_rules = rule_collection.get('yamlRules')
+            task_vars = task_data.get('vars') or {}
+            target_url = task_vars.get('url')
+            request_timeout = task_vars.get('timeout')
+            
+            if not task_id or not yaml_rules:
+                logger.warning(f'{prefix_text}Invalid task data received, skipping')
+                return
             
             target_page_html = await api.fetch_task_html(target_url, timeout=request_timeout)
             
@@ -306,7 +312,7 @@ class Bot:
                 task_id=task_id,
                 target_url_html=target_page_html,
                 task_yaml_rules=yaml_rules,
-                task_vars=task_data.get('vars')
+                task_vars=task_vars
             )
             task_json_data = farm_task.build_task_json_data()
             
