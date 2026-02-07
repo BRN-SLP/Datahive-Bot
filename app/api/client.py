@@ -220,6 +220,70 @@ class DatahiveAPI(BaseAPIClient):
         return response['items'][0]['alias']
     
     @require_auth_token
+    async def get_worker(self, device: Device) -> dict:
+        """Get worker information (extension calls this on startup)"""
+        device_name, device_model, device_os = parse_user_agent(device.user_agent)
+        
+        headers = {
+            'Accept': '*/*',
+            'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Connection': 'keep-alive',
+            'User-Agent': device.user_agent,
+            'authorization': f'Bearer {self.auth_token}',
+            'content-type': 'application/json',
+            'x-app-version': '0.2.5',
+            'x-cpu-architecture': device.cpu_architecture,
+            'x-cpu-model': device.cpu_model,
+            'x-cpu-processor-count': str(device.cpu_processor_count),
+            'x-device-id': device.device_id,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
+            'x-device-type': 'extension',
+            'x-s': 'f',
+            'x-user-agent': device.user_agent,
+            'x-user-language': 'uk-UA'
+        }
+        return await self.send_request(
+            request_type='GET',
+            headers=headers,
+            url='https://api.datahive.ai/api/worker'
+        )
+    
+    @require_auth_token
+    async def get_worker_uptime(self, device: Device) -> int:
+        """Get worker uptime (extension calls this to track uptime)"""
+        device_name, device_model, device_os = parse_user_agent(device.user_agent)
+        
+        headers = {
+            'Accept': '*/*',
+            'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
+            'Connection': 'keep-alive',
+            'User-Agent': device.user_agent,
+            'authorization': f'Bearer {self.auth_token}',
+            'content-type': 'application/json',
+            'x-app-version': '0.2.5',
+            'x-cpu-architecture': device.cpu_architecture,
+            'x-cpu-model': device.cpu_model,
+            'x-cpu-processor-count': str(device.cpu_processor_count),
+            'x-device-id': device.device_id,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
+            'x-device-type': 'extension',
+            'x-s': 'f',
+            'x-user-agent': device.user_agent,
+            'x-user-language': 'uk-UA'
+        }
+        response = await self.send_request(
+            request_type='GET',
+            headers=headers,
+            url='https://api.datahive.ai/api/ping/uptime'
+        )
+        return response.get('uptime', 0)
+
+    
+    @require_auth_token
     async def send_ping(self, device: Device):
         """Send ping with device information"""
         # Parse UserAgent to get dynamic device info

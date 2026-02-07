@@ -349,6 +349,11 @@ class Bot:
                 
                 if task == 'ping':
                     logger.info(f'{prefix_text}Sending ping')
+                    # First register worker with API (extension does this)
+                    try:
+                        await api.get_worker(device=device)
+                    except Exception:
+                        pass  # Non-critical, continue with ping
                     await api.send_ping(device=device)
                     logger.success(f'{prefix_text}Ping sent')
                 else:
