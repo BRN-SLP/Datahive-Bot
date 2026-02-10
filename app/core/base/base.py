@@ -318,7 +318,13 @@ class Bot:
             
             await asyncio.sleep(random.randint(2, 5))
             
-            if task_json_data.get('result').get('pageData').get('fields').get('title') == '':
+            # Safe navigation to avoid NoneType errors
+            result = task_json_data.get('result') or {}
+            page_data = result.get('pageData') or {}
+            fields = page_data.get('fields') or {}
+            title = fields.get('title', '')
+            
+            if title == '':
                 logger.info(f'{prefix_text}Page data not extracted, submitting empty result')
                 logger.debug(f'{prefix_text}Failed URL: {target_url} | HTML length: {len(target_page_html) if target_page_html else 0}')
             else:
