@@ -66,6 +66,22 @@ See [VPS_SETUP.md](VPS_SETUP.md) for detailed instructions.
 
 ---
 
+## 🔄 Database Migration (v1.1.0 Update)
+
+If you are updating from an older version, you **MUST** run the migration script to add the `last_initialized_at` column to your database. This is required for the new daily initialization logic.
+
+```bash
+# Activate your environment
+source venv/bin/activate
+
+# Run the migration
+python migrate.py
+```
+
+> **Note:** If you are installing for the first time, this is not required (the table is created correctly automatically), but running it won't hurt.
+
+---
+
 ## ⚙️ Configuration
 
 Edit `config/config.yaml`:
