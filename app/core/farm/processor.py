@@ -255,12 +255,12 @@ class FarmProcessor:
             
             if next_ping_available:
                 await bot.process_farm(device=device, task='ping', process_id=process_id)
-                next_ping_at = get_sleep_until(hours=1)
+                next_ping_at = get_sleep_until(minutes=2)
                 await device.update_device(next_ping_at=next_ping_at)
             
             if next_task_request_available:
                 await bot.process_farm(device=device, task='request_task', process_id=process_id)
-                next_job_request_at = get_sleep_until(days=1)
+                next_job_request_at = get_sleep_until(minutes=1)
                 await device.update_device(next_job_request_at=next_job_request_at)
             
             await bot._cleanup()

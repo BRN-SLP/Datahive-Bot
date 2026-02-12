@@ -25,6 +25,7 @@ class Device(Model):
     # Farming timestamps
     next_ping_at = fields.DatetimeField(null=True)
     next_job_request_at = fields.DatetimeField(null=True)
+    last_initialized_at = fields.DatetimeField(null=True)
     
     # Device proxy
     active_device_proxy = fields.TextField(null=True)
@@ -62,7 +63,8 @@ class Device(Model):
                 device_os=device_os,
                 active_device_proxy=active_device_proxy,
                 next_ping_at=None,
-                next_job_request_at=None
+                next_job_request_at=None,
+                last_initialized_at=None
             )
         else:
             device.account = account
@@ -114,7 +116,8 @@ class Device(Model):
         device_os: Optional[str] = None,
         active_device_proxy: Optional[str] = None,
         next_ping_at: Optional[datetime] = None,
-        next_job_request_at: Optional[datetime] = None
+        next_job_request_at: Optional[datetime] = None,
+        last_initialized_at: Optional[datetime] = None
     ):
         """Update device information"""
         update_fields = []
@@ -150,6 +153,10 @@ class Device(Model):
         if next_job_request_at is not None:
             self.next_job_request_at = next_job_request_at
             update_fields.append('next_job_request_at')
+
+        if last_initialized_at is not None:
+            self.last_initialized_at = last_initialized_at
+            update_fields.append('last_initialized_at')
         
         if update_fields:
             await self.save(update_fields=update_fields)

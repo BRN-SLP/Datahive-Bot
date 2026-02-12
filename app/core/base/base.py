@@ -377,13 +377,28 @@ class Bot:
                 if task == 'ping':
                     logger.info(f'{prefix_text}Sending ping')
                     
-                    # Emulate extension startup/heartbeat sequence ONLY ONCE per session
-                    if device.device_id not in self._initialized_devices:
+                    # Emulate extension startup/heartbeat sequence ONLY IF 24h passed
+                    should_initialize = True
+                    if device.last_initialized_at:
+                        from datetime import datetime, timezone, timedelta
+                        now = datetime.now(timezone.utc)
+                        last_init = device.last_initialized_at
+                        if last_init.tzinfo is None:
+                            last_init = last_init.replace(tzinfo=timezone.utc)
+                        
+                        if now - last_init < timedelta(hours=24):
+                            should_initialize = False
+                    
+                    if should_initialize:
                         try:
                             logger.info(f'{prefix_text}Initializing device session (Worker/Config/IP)..')
                             await api.get_worker(device=device)
                             await api.get_configuration(device=device)
                             await api.get_worker_ip_metadata(device=device)
+                            
+                            # Mark as initialized in DB for persistence
+                            from datetime import datetime, timezone
+                            await device.update_device(last_initialized_at=datetime.now(timezone.utc))
                             self._initialized_devices.add(device.device_id)
                         except Exception as e:
                             logger.warning(f'{prefix_text}Initialization warning: {e}')
