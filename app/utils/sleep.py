@@ -6,9 +6,15 @@ import pytz
 from datetime import datetime, timedelta
 
 
-def get_sleep_until(minutes: int = None, seconds: int = None) -> datetime:
-    """Get future datetime after sleeping for specified minutes/seconds"""
+def get_sleep_until(minutes: int = None, seconds: int = None, hours: int = None, days: int = None) -> datetime:
+    """Get future datetime after sleeping for specified duration"""
     duration = timedelta()
+    
+    if days is not None:
+        duration += timedelta(days=days)
+    
+    if hours is not None:
+        duration += timedelta(hours=hours)
     
     if minutes is not None:
         duration += timedelta(minutes=minutes)
