@@ -22,7 +22,7 @@ class BaseAPIClient:
 
     def _create_session(self) -> AsyncSession:
         session = AsyncSession(
-            impersonate='chrome142',
+            impersonate='chrome110',
             verify=False,
             timeout=30
         )

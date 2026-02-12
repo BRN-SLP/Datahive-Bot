@@ -256,33 +256,85 @@ class DatahiveAPI(BaseAPIClient):
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
         
         headers = {
-            'Accept': '*/*',
-            'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Connection': 'keep-alive',
-            'User-Agent': device.user_agent,
-            'authorization': f'Bearer {self.auth_token}',
-            'content-type': 'application/json',
-            'x-app-version': '0.2.5',
-            'x-cpu-architecture': device.cpu_architecture,
-            'x-cpu-model': device.cpu_model,
-            'x-cpu-processor-count': str(device.cpu_processor_count),
-            'x-device-id': device.device_id,
-            'x-device-model': device_model,
-            'x-device-name': device_name,
-            'x-device-os': device_os,
-            'x-device-type': 'extension',
-            'x-s': 'f',
-            'x-user-agent': device.user_agent,
-            'x-user-language': 'uk-UA'
+            'Content-Type': 'application/json',
+            'X-App-Version': '0.2.5',
+            'X-User-Agent': device.user_agent,
+            'X-Device-Type': 'extension',
+            'X-User-Language': 'en-US',
+            'X-Device-Name': device_name,
+            'X-Device-Model': device_model,
+            'X-Device-OS': device_os,
+            'Authorization': f'Bearer {self.auth_token}',
+            'X-Device-Id': device.device_id,
+            'X-CPU-Architecture': 'amd64',
+            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
+            'X-CPU-Processor-Count': '32',
+            'x-s': 'f'
         }
+
+        # Emulate extension's getWorkerUptime logic
         response = await self.send_request(
             request_type='GET',
             headers=headers,
             url='https://api.datahive.ai/api/ping/uptime'
         )
-        return response.get('uptime', 0)
+        return response.get('uptime') if response else 0
 
-    
+    @require_auth_token
+    async def get_configuration(self, device: Device) -> dict:
+        """Get global configuration (extension calls this at startup)"""
+        device_name, device_model, device_os = parse_user_agent(device.user_agent)
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'X-App-Version': '0.2.5',
+            'X-User-Agent': device.user_agent,
+            'X-Device-Type': 'extension',
+            'X-User-Language': 'en-US',
+            'X-Device-Name': device_name,
+            'X-Device-Model': device_model,
+            'X-Device-OS': device_os,
+            'Authorization': f'Bearer {self.auth_token}',
+            'X-Device-Id': device.device_id,
+            'X-CPU-Architecture': 'amd64',
+            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
+            'X-CPU-Processor-Count': '32',
+            'x-s': 'f'
+        }
+
+        return await self.send_request(
+            request_type='GET',
+            headers=headers,
+            url='https://api.datahive.ai/api/configuration'
+        )
+
+    @require_auth_token
+    async def get_worker_ip_metadata(self, device: Device) -> dict:
+        """Get worker IP metadata (extension calls this for UI)"""
+        device_name, device_model, device_os = parse_user_agent(device.user_agent)
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'X-App-Version': '0.2.5',
+            'X-User-Agent': device.user_agent,
+            'X-Device-Type': 'extension',
+            'X-User-Language': 'en-US',
+            'X-Device-Name': device_name,
+            'X-Device-Model': device_model,
+            'X-Device-OS': device_os,
+            'Authorization': f'Bearer {self.auth_token}',
+            'X-Device-Id': device.device_id,
+            'X-CPU-Architecture': 'amd64',
+            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
+            'X-CPU-Processor-Count': '32',
+            'x-s': 'f'
+        }
+
+        return await self.send_request(
+            request_type='GET',
+            headers=headers,
+            url='https://api.datahive.ai/api/network/worker-ip'
+        )  
     @require_auth_token
     async def send_ping(self, device: Device):
         """Send ping with device information"""
@@ -351,38 +403,79 @@ class DatahiveAPI(BaseAPIClient):
     @require_auth_token
     async def complete_task(self, device: Device, task_id: str, json_data: dict):
         """Complete task execution (API endpoint uses 'job')"""
-        # Parse UserAgent to get dynamic device info
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
         
         headers = {
-            'Accept': '*/*',
-            'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Connection': 'keep-alive',
-            'Origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
-            'User-Agent': device.user_agent,
-            'authorization': f'Bearer {self.auth_token}',
-            'content-type': 'application/json',
-            'x-app-version': '0.2.5',
-            'x-cpu-architecture': device.cpu_architecture,
-            'x-cpu-model': device.cpu_model,
-            'x-cpu-processor-count': str(device.cpu_processor_count),
-            'x-device-id': device.device_id,
-            'x-device-model': device_model,
-            'x-device-name': device_name,
-            'x-device-os': device_os,
-            'x-device-type': 'extension',
+            'Content-Type': 'application/json',
+            'X-App-Version': '0.2.5',
+            'X-User-Agent': device.user_agent,
+            'X-Device-Type': 'extension',
+            'X-User-Language': 'en-US',
+            'X-Device-Name': device_name,
+            'X-Device-Model': device_model,
+            'X-Device-OS': device_os,
+            'Authorization': f'Bearer {self.auth_token}',
+            'X-Device-Id': device.device_id,
+            'X-CPU-Architecture': 'amd64',
+            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
+            'X-CPU-Processor-Count': '32',
             'x-s': 'f',
-            'x-user-agent': device.user_agent,
-            'x-user-language': 'uk-UA'
+            'Origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb'
         }
+
+        # Ensure correct JSON structure for completion
+        # Extension sends: {result: i, metadata: t||{}, context: "extension"}
+        # Check if json_data already has this structure or needs wrapping
+        payload = json_data
+        if 'context' not in payload:
+             payload['context'] = 'extension'
+        
         return await self.send_request(
             request_type='POST',
-            json_data=json_data,
+            json_data=payload,
             headers=headers,
             url=f'https://api.datahive.ai/api/job/{task_id}'
         )
 
-    async def fetch_task_html(self, url: str, timeout: int = None) -> Optional[str]:
+    @require_auth_token
+    async def report_error(self, device: Device, task_id: str, error: str, metadata: dict = None, result: dict = None):
+        """Report task execution error (API endpoint uses 'job/:id/error')"""
+        device_name, device_model, device_os = parse_user_agent(device.user_agent)
+        
+        headers = {
+            'Content-Type': 'application/json',
+            'X-App-Version': '0.2.5',
+            'X-User-Agent': device.user_agent,
+            'X-Device-Type': 'extension',
+            'X-User-Language': 'en-US',
+            'X-Device-Name': device_name,
+            'X-Device-Model': device_model,
+            'X-Device-OS': device_os,
+            'Authorization': f'Bearer {self.auth_token}',
+            'X-Device-Id': device.device_id,
+            'X-CPU-Architecture': 'amd64',
+            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
+            'X-CPU-Processor-Count': '32',
+            'x-s': 'f',
+            'Origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb'
+        }
+
+        # Extension sends: {error: i, metadata: t||{}, result: o||{}, context: "extension"}
+        payload = {
+            'error': error,
+            'metadata': metadata or {},
+            'result': result or {},
+            'context': 'extension'
+        }
+        
+        return await self.send_request(
+            request_type='POST',
+            json_data=payload,
+            headers=headers,
+            url=f'https://api.datahive.ai/api/job/{task_id}/error'
+        )
+
+    async def fetch_task_html(self, url: str, timeout: int = None, user_agent: str = None) -> Optional[str]:
         """Fetch HTML content for task"""
         session = self._create_session()
         try:
@@ -391,13 +484,13 @@ class DatahiveAPI(BaseAPIClient):
                 'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
                 'Connection': 'keep-alive',
                 'Referer': url,
-                'User-Agent': self.user_agent
+                'User-Agent': user_agent or self.user_agent
             }
             response = await session.get(
                 url,
                 timeout=timeout,
                 verify=False,
-                allow_redirects=False,
+                allow_redirects=True,
                 headers=headers
             )
             if response.status_code != 200:

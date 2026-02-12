@@ -32,6 +32,7 @@ class Bot:
         
         self.running = True
         self.attempt_count = 0
+        self._initialized_devices = set()
 
     @staticmethod
     def _build_log_prefix(
@@ -289,51 +290,71 @@ class Bot:
     
     async def process_task(self, device: Device, account: Account, api: DatahiveAPI, process_id: Optional[int] = None):
         """Process farming task"""
-        task_data = await api.request_task(device=device)
-        prefix = self._build_log_prefix(process_id, account, device)
-        prefix_text = f'{prefix} | ' if prefix else ''
-        
-        if task_data:
-            logger.info(f'{prefix_text}Received task, processing')
-            task_id = task_data.get('id')
-            rule_collection = task_data.get('ruleCollection') or {}
-            yaml_rules = rule_collection.get('yamlRules')
-            task_vars = task_data.get('vars') or {}
-            target_url = task_vars.get('url')
-            request_timeout = task_vars.get('timeout')
+        try:
+            task_data = await api.request_task(device=device)
+            prefix = self._build_log_prefix(process_id, account, device)
+            prefix_text = f'{prefix} | ' if prefix else ''
             
-            if not task_id or not yaml_rules:
-                logger.warning(f'{prefix_text}Invalid task data received, skipping')
-                return
-            
-            target_page_html = await api.fetch_task_html(target_url, timeout=request_timeout)
-            
-            farm_task = FarmTask(
-                task_id=task_id,
-                target_url_html=target_page_html,
-                task_yaml_rules=yaml_rules,
-                task_vars=task_vars
-            )
-            task_json_data = farm_task.build_task_json_data()
-            
-            await asyncio.sleep(random.randint(2, 5))
-            
-            # Safe navigation to avoid NoneType errors
-            result = task_json_data.get('result') or {}
-            page_data = result.get('pageData') or {}
-            fields = page_data.get('fields') or {}
-            title = fields.get('title', '')
-            
-            if title == '':
-                logger.info(f'{prefix_text}Page data not extracted, submitting empty result')
-                logger.debug(f'{prefix_text}Failed URL: {target_url} | HTML length: {len(target_page_html) if target_page_html else 0}')
+            if task_data:
+                logger.info(f'{prefix_text}Received task, processing')
+                task_id = task_data.get('id')
+                rule_collection = task_data.get('ruleCollection') or {}
+                yaml_rules = rule_collection.get('yamlRules')
+                task_vars = task_data.get('vars') or {}
+                target_url = task_vars.get('url')
+                request_timeout = task_vars.get('timeout')
+                
+                if not task_id or not yaml_rules:
+                    logger.warning(f'{prefix_text}Invalid task data received, skipping')
+                    return
+                
+                target_page_html = await api.fetch_task_html(target_url, timeout=request_timeout)
+                
+                farm_task = FarmTask(
+                    task_id=task_id,
+                    target_url_html=target_page_html,
+                    task_yaml_rules=yaml_rules,
+                    task_vars=task_vars
+                )
+                task_json_data = farm_task.build_task_json_data()
+                
+                await asyncio.sleep(random.randint(2, 5))
+                
+                # Safe navigation to avoid NoneType errors
+                # Collect fields from all outputs in the result
+                fields = {}
+                result = task_json_data.get('result') or {}
+                for out_key, out_val in result.items():
+                    if isinstance(out_val, dict) and 'fields' in out_val:
+                        fields.update(out_val.get('fields') or {})
+                
+                # Check if any field has content
+                has_data = any(str(v).strip() for v in fields.values())
+                
+                if not has_data:
+                    logger.info(f'{prefix_text}Page data not extracted, submitting empty result')
+                    logger.debug(f'{prefix_text}Failed URL: {target_url} | HTML length: {len(target_page_html) if target_page_html else 0}')
+                else:
+                    logger.info(f'{prefix_text}Page data extracted (fields: {list(fields.keys())}), completing task')
+                
+                await api.complete_task(device=device, task_id=task_id, json_data=task_json_data)
+                logger.success(f'{prefix_text}Task completed')
             else:
-                logger.info(f'{prefix_text}Page data extracted, completing task')
-            
-            await api.complete_task(device=device, task_id=task_id, json_data=task_json_data)
-            logger.success(f'{prefix_text}Task completed')
-        else:
-            logger.info(f'{prefix_text}No task available')
+                logger.info(f'{prefix_text}No task available')
+
+        except Exception as e:
+            logger.error(f'{prefix_text}Error processing task: {e}')
+            if 'task_id' in locals() and task_id:
+                try:
+                    await api.report_error(
+                        device=device,
+                        task_id=task_id,
+                        error=str(e),
+                        metadata={'url': target_url if 'target_url' in locals() else None}
+                    )
+                    logger.info(f'{prefix_text}Reported error to API')
+                except Exception as report_error:
+                    logger.error(f'{prefix_text}Failed to report error: {report_error}')
 
     async def process_farm(
         self,
@@ -355,11 +376,19 @@ class Bot:
                 
                 if task == 'ping':
                     logger.info(f'{prefix_text}Sending ping')
-                    # First register worker with API (extension does this)
-                    try:
-                        await api.get_worker(device=device)
-                    except Exception:
-                        pass  # Non-critical, continue with ping
+                    
+                    # Emulate extension startup/heartbeat sequence ONLY ONCE per session
+                    if device.device_id not in self._initialized_devices:
+                        try:
+                            logger.info(f'{prefix_text}Initializing device session (Worker/Config/IP)..')
+                            await api.get_worker(device=device)
+                            await api.get_configuration(device=device)
+                            await api.get_worker_ip_metadata(device=device)
+                            self._initialized_devices.add(device.device_id)
+                        except Exception as e:
+                            logger.warning(f'{prefix_text}Initialization warning: {e}')
+                            pass  # Non-critical, continue with ping
+                        
                     await api.send_ping(device=device)
                     logger.success(f'{prefix_text}Ping sent')
                 else:

@@ -116,15 +116,21 @@ class FarmTask:
         template = field_def.get('template')
         
         if not ftype or not xpath:
+            logger.warning(f"DEBUG WARN: Missing type or xpath in field_def: {field_def}")
             return ''
         
         if ftype == 'PROPERTY':
             matches = node.xpath(xpath)
             
             if not matches:
+                snippet = lhtml.tostring(node, encoding='unicode')[:300]
+                logger.warning(f"DEBUG NO MATCH: XPath='{xpath}' HTML: {snippet}")
                 return ''
             text = self._node_to_text(matches[0])
-            return self._apply_regexp_and_template(text, regexp, template)
+            result = self._apply_regexp_and_template(text, regexp, template)
+            snippet = lhtml.tostring(node, encoding='unicode')[:500]
+            logger.info(f"DEBUG RESULT: Field='{field_def.get('field_name')}' Result='{result}' HTML_START: {snippet}")
+            return result
         
         elif ftype == 'OBJECT':
             result = {}
@@ -157,21 +163,25 @@ class FarmTask:
         """Run HTML processing by rules"""
         doc = lhtml.fromstring(html_text)
         fields_cfg = rules.get('fields', [])
+        logger.info(f"DEBUG RULES: keys={list(rules.keys())}, fields_len={len(fields_cfg)}")
         
         fields_result = {}
         
         for field_def in fields_cfg:
             try:
                 if not isinstance(field_def, dict):
+                    logger.error(f"DEBUG CRITICAL: field_def is not a dict! Type: {type(field_def)} Value: {field_def}")
                     continue
                 
                 name = field_def.get('field_name', 'unknown_field')
+                logger.info(f"DEBUG FIELDS: Processing field '{name}' | Def: {field_def}")
                 
                 fields_result[name] = self.extract_field(doc, field_def)
             except Exception as e:
-                logger.error(f"Field extraction error: {e}")
+                logger.error(f"DEBUG CRASH in loop: {e}")
         
-        return {'fields': fields_result}
+        result = {'fields': fields_result}
+        return result
 
     def run_yaml_rules_on_html(self):
         """Run standard YAML-based rules on HTML content"""
@@ -179,6 +189,7 @@ class FarmTask:
             return {}
         
         parsed = yaml.safe_load(self.task_yaml_rules)
+        logger.info(f"DEBUG YAML RAW: {self.task_yaml_rules[:200]}")
         steps = parsed.get('steps', [])
         vars_data = self.task_vars or {}
         step_outputs = {}
