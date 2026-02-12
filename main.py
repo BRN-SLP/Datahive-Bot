@@ -48,6 +48,20 @@ async def main():
     init_logger(settings.logging_level)
     logger = get_logger()
     
+    # -------------------------------------------------------------------------
+    # MIGRATION WARNING (v1.1.0)
+    # -------------------------------------------------------------------------
+    print("\n" + "="*60)
+    print(" ⚠️  CRITICAL UPDATE NOTICE (v1.1.0)")
+    print("="*60)
+    print(" If you are updating from an older version, you MUST run:")
+    print(" python migrate.py")
+    print(" to add the 'last_initialized_at' column to your database.")
+    print(" Failure to do so may cause database errors.")
+    print(" If you have already run migration, ignore this message.")
+    print("="*60 + "\n")
+    # -------------------------------------------------------------------------
+    
     manager = None
 
     try:

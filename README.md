@@ -2,6 +2,11 @@
 
 Automated farming and account management bot for [Datahive.ai](https://datahive.ai) platform.
 
+> 🚨 **CRITICAL UPDATE (v1.1.0):**
+> **Mandatory Database Migration Required!**
+> If updating, you **MUST** run `python migrate.py` before starting the bot.
+> See [Database Migration](#-database-migration-v110-update) section below.
+
 > ⚠️ **Note:** 10% of registrations support the developer through referral codes. Thank you for using this free software!
 
 ---
@@ -9,12 +14,12 @@ Automated farming and account management bot for [Datahive.ai](https://datahive.
 ## 💻 Requirements
 
 | Software | Minimum Version | Recommended |
-|----------|-----------------|-------------|
+| :--- | :--- | :--- |
 | Python | 3.9 | 3.11+ |
 | PostgreSQL | 16 | 16+ |
 
 | Resource | Notes |
-|----------|-------|
+| :--- | :--- |
 | **RAM** | Depends on accounts/threads. Start with 1GB |
 | **Disk** | 500MB+ (logs can grow) |
 | **Proxies** | HTTP/SOCKS5. Test which work for your region |
@@ -171,7 +176,7 @@ imap_settings:
 Located in `config/data/`:
 
 | File | Format |
-|------|--------|
+| :--- | :--- |
 | `login_accounts.txt` | `email:password` (one per line) |
 | `farm_accounts.txt` | `email` (one per line, empty = all) |
 | `proxies.txt` | `http://user:pass@host:port` |
@@ -202,7 +207,7 @@ For background running, see [VPS_SETUP.md](VPS_SETUP.md) (tmux/screen).
 ## 🔧 Troubleshooting
 
 | Problem | Solution |
-|---------|----------|
+| :--- | :--- |
 | Database error | Check PostgreSQL is running |
 | Rate limit 429 | Add more proxies |
 | OTP not found | Check IMAP settings |
@@ -217,21 +222,21 @@ For background running, see [VPS_SETUP.md](VPS_SETUP.md) (tmux/screen).
 
 ### How Settings Work Together
 
-```
+```text
 Real parallelism = min(farming_threads × max_processes, max_concurrent_tasks)
 ```
 
 ### Calculation Formula
 
 | Your Setup | Formula | Result |
-|------------|---------|--------|
+| :--- | :--- | :--- |
 | 500 accounts × 2 devices | = 1000 total devices | |
 | max_concurrent_tasks: 250 | 1000 ÷ 250 | 4 iterations |
 
 ### Recommended Settings by VPS Size
 
 | VPS Specs | farming | max_processes | max_concurrent_tasks | Best for |
-|-----------|---------|---------------|----------------------|----------|
+| :--- | :--- | :--- | :--- | :--- |
 | 1 CPU / 1GB | 50 | 1 | 50 | Up to 200 accounts |
 | 2 CPU / 2GB | 100 | 2 | 150 | Up to 500 accounts |
 | 4 CPU / 4GB | 100 | 3 | 300 | Up to 1000 accounts |
