@@ -182,6 +182,37 @@ Located in `config/data/`:
 | `proxies.txt` | `http://user:pass@host:port` |
 | `referral_codes.txt` | `code` (one per line) |
 | `export_stats_accounts.txt` | `email` (one per line, empty = all) |
+| `wallets.txt` | `private_key` (Base58, one per line) |
+| `export.zip` | Apple Health Data Archive |
+
+---
+
+## 🎯 Missions & Wallet Binding (V2)
+
+The bot now supports automated wallet binding and lucrative missions (up to 20,500 points per account).
+
+### 1. Solana Wallet Binding
+
+The bot intercepts the Datahive wallet payload to securely sign transactions headless-ly via `solders`, without needing a browser or Phantom extension.
+**Setup:**
+
+1. Export the **Private Key** (in Base58 format) from your Phantom/Solflare wallets.
+2. Paste them into `config/data/wallets.txt` (one per line).
+3. The bot will automatically pull a random wallet from this list for each bound account.
+
+### 2. Apple Health Mission (20,000 pts)
+
+The bot uses a **Memory-Safe Streaming XML Mutator** to randomize your biometric data (heartbeat timestamps, step counts, etc.) on the fly. This ensures Datahive never detects duplicate uploads while keeping memory usage under 20MB.
+**Setup:**
+
+1. Export your real Apple Health data from your iPhone (Profile -> Export All Health Data).
+2. Rename the resulting file to exactly `export.zip`.
+3. Place this file inside the `config/data/` directory.
+
+### 3. Amazon Extension Mission (500 pts)
+
+You do **not** need to install the Datahive Extension or log into Amazon.
+The bot actively accesses your local database to extract the `device_id` from your long-running farming workers. It then emulates the backend Extension API (intercepting ping and job payload queues) to convince Datahive that your worker is actively crawling Amazon, netting you the 500 points anonymously.
 
 ---
 
