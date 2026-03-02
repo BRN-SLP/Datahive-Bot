@@ -43,6 +43,10 @@ class DatahiveApp:
                     await self._handle_export_stats()
                 elif choice == 4:
                     await self._handle_clear_proxies()
+                elif choice == 6:
+                    await self._handle_bind_wallets()
+                elif choice == 7:
+                    await self._handle_missions()
                 elif choice == 5:
                     self.running = False
                     logger.info("Shutting down...")
@@ -288,6 +292,138 @@ class DatahiveApp:
         csv_file = stats.export_to_csv()
         logger.success(f"Stats exported to: {csv_file}")
     
+    async def _handle_bind_wallets(self) -> None:
+        """Bind Solana wallets to accounts based on data/wallets.txt"""
+        from app.database.models.accounts import Account
+        from app.services.solana_service import SolanaService
+        import os
+        
+        logger.info("Starting Solana Wallet Binding process...")
+        wallets_file = "data/wallets.txt"
+        
+        if not os.path.exists(wallets_file):
+            logger.error(f"File {wallets_file} not found. Please create it first.")
+            return
+
+        with open(wallets_file, 'r') as f:
+            lines = [line.strip() for line in f if line.strip() and not line.startswith('#')]
+            
+        if not lines:
+            logger.warning(f"No valid entries found in {wallets_file}")
+            return
+            
+        self.menu.show_operation_info("Binding Wallets", len(lines))
+        
+        success_count = 0
+        skip_count = 0
+        fail_count = 0
+
+        for line in lines:
+            if ':' not in line:
+                logger.warning(f"Invalid format: {line}. Expected email:private_key")
+                fail_count += 1
+                continue
+                
+            email, pkey = line.split(':', 1)
+            account = await Account.get_account(email)
+            
+            if not account:
+                logger.warning(f"Account {email} not found in database. Skipping.")
+                skip_count += 1
+                continue
+                
+            if account.wallet_address:
+                logger.info(f"Account {email} already has a wallet bound: {account.wallet_address}. Skipping.")
+                skip_count += 1
+                continue
+                
+            if not account.auth_token:
+                logger.warning(f"Account {email} has no auth_token (not logged in). Cannot bind offline. Skipping.")
+                skip_count += 1
+                continue
+                
+            logger.info(f"Binding wallet for {email}...")
+            
+            # Using dummy session since SolanaService isolates its own requests currently, 
+            # or pass None if SolanaService creates its own aiohttp Session.
+            service = SolanaService(session=None, auth_token=account.auth_token)
+            success, address = await service.bind_wallet(pkey)
+            
+            if success and address:
+                account.wallet_address = address
+                await account.save(update_fields=['wallet_address'])
+                logger.success(f"Successfully bound wallet to {email} and saved to DB.")
+                success_count += 1
+            else:
+                logger.error(f"Failed to bind wallet for {email}")
+                fail_count += 1
+                
+        logger.info(f"Wallet Binding Complete: {success_count} success, {skip_count} skipped, {fail_count} failed")
+
+    async def _handle_missions(self) -> None:
+        """Execute Datahive Amazon & Apple Health missions for eligible accounts."""
+        from app.database.models.accounts import Account
+        from app.services.mission_service import MissionService
+        import questionary
+        import os
+        
+        # We use a custom style to match the neon aesthetic
+        custom_style = questionary.Style([
+            ('qmark', 'fg:#673ab7 bold'),       
+            ('question', 'bold'),               
+            ('answer', 'fg:#f44336 bold'),      
+            ('pointer', 'fg:#00ffff bold'),     
+            ('highlighted', 'fg:#00ffff bold'), 
+            ('selected', 'fg:#cc5454')
+        ])
+
+        choice = await questionary.select(
+            "Which missions do you want to run?",
+            choices=[
+                "1. Amazon Extension (500 pts)",
+                "2. Apple Health Upload (20,000 pts)",
+                "3. Both Missions",
+                "Cancel"
+            ],
+            style=custom_style
+        ).unsafe_ask_async()
+        
+        if choice == "Cancel":
+            return
+            
+        run_amazon = choice in ["1. Amazon Extension (500 pts)", "3. Both Missions"]
+        run_health = choice in ["2. Apple Health Upload (20,000 pts)", "3. Both Missions"]
+        
+        base_zip_path = "data/export.zip"
+        if run_health and not os.path.exists(base_zip_path):
+            logger.error(f"Apple Health seed file not found at {base_zip_path}. Please place your export.zip there.")
+            return
+
+        # Load only logged in accounts
+        accounts = await Account.filter(auth_token__not_isnull=True).all()
+        
+        if not accounts:
+            logger.warning("No logged-in accounts found to execute missions.")
+            return
+            
+        self.menu.show_operation_info(f"Executing Missions ({choice.split('.')[1].strip()})", len(accounts))
+
+        for account in accounts:
+            logger.info(f"Processing missions for {account.email}...")
+            service = MissionService(session=None, auth_token=account.auth_token)
+            
+            if run_amazon:
+                await service.complete_amazon_extension_mission()
+                # Adding slight delay between missions
+                await asyncio.sleep(2)
+                
+            if run_health:
+                # We use the internal DB ID or a hashed version of email to stay deterministic
+                await service.complete_apple_health_mission(str(account.id), base_zip_path)
+                await asyncio.sleep(2)
+                
+        logger.info("All selected missions completed.")
+
     async def _handle_clear_proxies(self) -> None:
         """Clear all proxy assignments from accounts in database"""
         from app.database.models.accounts import Account

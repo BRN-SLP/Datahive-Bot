@@ -23,6 +23,9 @@ class Account(Model):
     # Proxy
     active_account_proxy = fields.CharField(max_length=255, null=True)
     
+    # Web3 Integration
+    wallet_address = fields.CharField(max_length=255, null=True)
+    
     # Reverse relation to devices (created automatically via ForeignKey in Device)
     # devices: fields.ReverseRelation[Device] - accessible via account.devices
 

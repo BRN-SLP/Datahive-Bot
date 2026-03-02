@@ -92,6 +92,8 @@ class DatahiveMenu:
             choices=[
                 "Login accounts",
                 "Farm accounts",
+                "Bind Solana Wallets",
+                "Execute Missions (Amazon & Health)",
                 "Export stats",
                 "Clear proxies",
                 "Exit"
@@ -103,6 +105,10 @@ class DatahiveMenu:
             return 1
         elif choice == "Farm accounts":
             return 2
+        elif choice == "Bind Solana Wallets":
+            return 6
+        elif choice == "Execute Missions (Amazon & Health)":
+            return 7
         elif choice == "Export stats":
             return 3
         elif choice == "Clear proxies":

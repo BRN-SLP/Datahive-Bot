@@ -28,11 +28,38 @@ async def run_migration():
                 await conn.execute_script(
                     "ALTER TABLE datahive_devices ADD COLUMN last_initialized_at TIMESTAMP WITH TIME ZONE;"
                 )
-                logger.info("✅ Migration successful! Database is now updated.")
+                logger.info("✅ Migration successful! Devices table updated.")
             except Exception as e:
-                logger.error(f"❌ Migration failed: {e}")
+                logger.error(f"❌ Migration failed for devices: {e}")
         else:
-            logger.info("✅ Column 'last_initialized_at' already exists. No action needed.")
+            logger.info("✅ Column 'last_initialized_at' already exists.")
+
+        # Check for wallet_address in accounts
+        logger.info("Checking accounts schema for v2 updates...")
+        wallet_result = await conn.execute_query_dict(
+            "SELECT column_name FROM information_schema.columns WHERE table_name = 'datahive_accounts' AND column_name = 'wallet_address'"
+        )
+        # Using SQLite PRAGMA fallback if information_schema is not supported (often the case in SQLite Tortoise)
+        if not wallet_result:
+            try:
+                sqlite_check = await conn.execute_query_dict("PRAGMA table_info(datahive_accounts);")
+                has_wallet = any(col['name'] == 'wallet_address' for col in sqlite_check)
+            except:
+                has_wallet = False
+        else:
+            has_wallet = True
+
+        if not has_wallet:
+            logger.info("Adding 'wallet_address' column to 'datahive_accounts'...")
+            try:
+                await conn.execute_script(
+                    "ALTER TABLE datahive_accounts ADD COLUMN wallet_address VARCHAR(255) NULL;"
+                )
+                logger.info("✅ Migration successful! Accounts table updated.")
+            except Exception as e:
+                logger.error(f"❌ Migration failed for accounts: {e}")
+        else:
+            logger.info("✅ Column 'wallet_address' already exists.")
 
     except Exception as e:
         logger.error(f"❌ Critical error: {e}")
