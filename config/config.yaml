@@ -35,6 +35,11 @@ delay_before_start:
   min: 60  # MINIMUM 60 seconds! Lower values cause rate limits
   max: 180
 
+# Sleep delay between testing consecutive accounts or tasks
+sleep_before_next_task:
+  min: 16
+  max: 88
+
 # Retry settings
 retry:
   delay_seconds: 10  # Delay between retries (in seconds)

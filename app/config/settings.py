@@ -79,7 +79,21 @@ class DatahiveSettings:
         if "delay_before_start" in self.data:
             return self.data["delay_before_start"]["max"]
         return self.data.get("attempts_and_delay_settings", {}).get("delay_before_start", {}).get("max", 180)
-    
+
+    @property
+    def sleep_between_tasks_min(self) -> int:
+        """Minimum delay between tasks/accounts"""
+        if "sleep_before_next_task" in self.data:
+            return self.data["sleep_before_next_task"]["min"]
+        return 16 # Default user requested min
+        
+    @property
+    def sleep_between_tasks_max(self) -> int:
+        """Maximum delay between tasks/accounts"""
+        if "sleep_before_next_task" in self.data:
+            return self.data["sleep_before_next_task"]["max"]
+        return 88 # Default user requested max
+        
     @property
     def referral_code_settings(self) -> Dict[str, Any]:
         """Referral code settings"""

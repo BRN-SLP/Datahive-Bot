@@ -299,7 +299,7 @@ class DatahiveApp:
         import os
         
         logger.info("Starting Solana Wallet Binding process...")
-        wallets_file = "data/wallets.txt"
+        wallets_file = "config/data/wallets.txt"
         
         if not os.path.exists(wallets_file):
             logger.error(f"File {wallets_file} not found. Please create it first.")
@@ -318,7 +318,16 @@ class DatahiveApp:
         skip_count = 0
         fail_count = 0
 
-        for line in lines:
+        for i, line in enumerate(lines):
+            if i == 0:
+                delay = random.randint(self.settings.delay_min, self.settings.delay_max)
+                logger.info(f"Waiting {delay}s before starting wallet binding...")
+                await asyncio.sleep(delay)
+            else:
+                delay = random.randint(self.settings.sleep_between_tasks_min, self.settings.sleep_between_tasks_max)
+                logger.info(f"Waiting {delay}s before next wallet binding...")
+                await asyncio.sleep(delay)
+                
             if ':' not in line:
                 logger.warning(f"Invalid format: {line}. Expected email:private_key")
                 fail_count += 1
@@ -344,9 +353,13 @@ class DatahiveApp:
                 
             logger.info(f"Binding wallet for {email}...")
             
-            # Using dummy session since SolanaService isolates its own requests currently, 
-            # or pass None if SolanaService creates its own aiohttp Session.
-            service = SolanaService(session=None, auth_token=account.auth_token)
+            timeout = getattr(self.settings.farm_settings, 'device_task_timeout', 60)
+            service = SolanaService(
+                session=None, 
+                auth_token=account.auth_token,
+                proxy=account.proxy,
+                timeout=timeout
+            )
             success, address = await service.bind_wallet(pkey)
             
             if success and address:
@@ -394,7 +407,7 @@ class DatahiveApp:
         run_amazon = choice in ["1. Amazon Extension (500 pts)", "3. Both Missions"]
         run_health = choice in ["2. Apple Health Upload (20,000 pts)", "3. Both Missions"]
         
-        base_zip_path = "data/export.zip"
+        base_zip_path = "config/data/export.zip"
         if run_health and not os.path.exists(base_zip_path):
             logger.error(f"Apple Health seed file not found at {base_zip_path}. Please place your export.zip there.")
             return
@@ -408,14 +421,36 @@ class DatahiveApp:
             
         self.menu.show_operation_info(f"Executing Missions ({choice.split('.')[1].strip()})", len(accounts))
 
-        for account in accounts:
+        for i, account in enumerate(accounts):
+            if i == 0:
+                delay = random.randint(self.settings.delay_min, self.settings.delay_max)
+                logger.info(f"Waiting {delay}s before starting missions...")
+                await asyncio.sleep(delay)
+            else:
+                delay = random.randint(self.settings.sleep_between_tasks_min, self.settings.sleep_between_tasks_max)
+                logger.info(f"Waiting {delay}s before missions for next account...")
+                await asyncio.sleep(delay)
+
             logger.info(f"Processing missions for {account.email}...")
-            service = MissionService(session=None, auth_token=account.auth_token)
+            from app.database.models.devices import Device
+            device = await Device.filter(account=account).first()
+            device_id = device.device_id if device else None
+            
+            timeout = getattr(self.settings.farm_settings, 'device_task_timeout', 60)
+            service = MissionService(
+                session=None, 
+                auth_token=account.auth_token,
+                proxy=account.proxy,
+                device_id=device_id,
+                timeout=timeout
+            )
             
             if run_amazon:
                 await service.complete_amazon_extension_mission()
-                # Adding slight delay between missions
-                await asyncio.sleep(2)
+                if run_health:
+                    delay = random.randint(self.settings.sleep_between_tasks_min, self.settings.sleep_between_tasks_max)
+                    logger.info(f"Waiting {delay}s before Apple Health mission...")
+                    await asyncio.sleep(delay)
                 
             if run_health:
                 # We use the internal DB ID or a hashed version of email to stay deterministic
