@@ -37,7 +37,7 @@ def save_state(state):
 
 async def run_stealth_protocol():
     # Setup logger
-    init_logger(logging_level="INFO")
+    init_logger("INFO")
     logger = get_logger()
     
     logger.info("Initializing Stealth Mission Deployer (Anti-Sybil Mode) 🥷")
