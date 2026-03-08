@@ -93,7 +93,8 @@ class DatahiveMenu:
                 "Login accounts",
                 "Farm accounts",
                 "Bind Solana Wallets",
-                "Execute Missions (Amazon & Health)",
+                "Execute Missions (Standard)",
+                "Deploy Stealth Missions (Anti-Sybil) 🥷",
                 "Export stats",
                 "Clear proxies",
                 "Exit"
@@ -107,8 +108,10 @@ class DatahiveMenu:
             return 2
         elif choice == "Bind Solana Wallets":
             return 6
-        elif choice == "Execute Missions (Amazon & Health)":
+        elif choice == "Execute Missions (Standard)":
             return 7
+        elif choice == "Deploy Stealth Missions (Anti-Sybil) 🥷":
+            return 8
         elif choice == "Export stats":
             return 3
         elif choice == "Clear proxies":

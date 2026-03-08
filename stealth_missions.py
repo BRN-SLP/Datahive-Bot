@@ -35,7 +35,7 @@ def save_state(state):
     with open(STATE_FILE, "w") as f:
         json.dump(state, f, indent=4)
 
-async def main():
+async def run_stealth_protocol():
     # Setup logger
     init_logger(logging_level="INFO")
     logger = get_logger()
@@ -168,6 +168,6 @@ async def main():
 
 if __name__ == "__main__":
     try:
-        asyncio.run(main())
+        asyncio.run(run_stealth_protocol())
     except KeyboardInterrupt:
         print("\n[!] Stealth deployer paused. You can restart it anytime to resume.")

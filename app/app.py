@@ -47,6 +47,8 @@ class DatahiveApp:
                     await self._handle_bind_wallets()
                 elif choice == 7:
                     await self._handle_missions()
+                elif choice == 8:
+                    await self._handle_stealth_missions()
                 elif choice == 5:
                     self.running = False
                     logger.info("Shutting down...")
@@ -458,6 +460,34 @@ class DatahiveApp:
                 await asyncio.sleep(2)
                 
         logger.info("All selected missions completed.")
+
+    async def _handle_stealth_missions(self) -> None:
+        """Call the stealth deployer functionality directly from the menu"""
+        import os
+        import subprocess
+        
+        logger.info("Initializing Stealth Protocol... Please wait.")
+        print()
+        print("="*60)
+        print(" 🥷 ANTI-SYBIL STEALTH DEPLOYER")
+        print("="*60)
+        print(" This module will run in the foreground.")
+        print(" Press Ctrl+C at any time to safely pause and return to menu.")
+        print(" State is saved incrementally to allow for easy resumption.")
+        print("="*60)
+        print()
+        
+        try:
+            # We import the main function dynamically to avoid circular imports 
+            # and to keep its randomized execution context fully isolated.
+            from stealth_missions import run_stealth_protocol
+            await run_stealth_protocol()
+            input("\nStealth cycle complete. Press Enter to return to menu...")
+        except KeyboardInterrupt:
+            logger.info("Stealth deployer paused by user.")
+        except Exception as e:
+            logger.error(f"Error in stealth deployment: {e}")
+            input("Press Enter to continue...")
 
     async def _handle_clear_proxies(self) -> None:
         """Clear all proxy assignments from accounts in database"""
