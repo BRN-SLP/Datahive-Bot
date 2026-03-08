@@ -122,6 +122,9 @@ class MissionService:
         Generates a unique Apple Health export and uploads it for 20,000 points.
         """
         output_zip = f"data/missions/health_export_profile_{profile_id}.zip"
+        
+        # Ensure the output directory exists to prevent FileNotFoundError
+        os.makedirs(os.path.dirname(output_zip), exist_ok=True)
 
         logger.info(f"Preparing dynamic Apple Health trace for profile {profile_id}")
         success = generate_unique_health_export(base_zip_path, output_zip, profile_id)
@@ -139,20 +142,28 @@ class MissionService:
 
         # Determine the upload URL (We may need to fetch a presigned URL first)
         # Using the standard direct-upload path based on typical dashboard architecture
-        url = f"{self.base_url}/apple-health/upload"
+        health_mission_id = "82683c44-f896-4976-8329-09198b2cfecb"
+        url = f"{self.base_url}/{health_mission_id}/submit/file"
         proxies = {"http": self.proxy, "https": self.proxy} if self.proxy else None
 
+        import aiohttp
         try:
-            with open(output_zip, 'rb') as file_data:
-                files = {'file': ('export.zip', file_data, 'application/zip')}
+            data = aiohttp.FormData()
+            data.add_field('file',
+                           open(output_zip, 'rb'),
+                           filename='export.zip',
+                           content_type='application/zip')
 
-                async with TLSAsyncSession(proxies=proxies, timeout=self.timeout, impersonate="chrome120") as session:
-                    response = await session.post(url, headers=headers, files=files)
-                    if response.status_code in [200, 201]:
+            aio_proxy = self.proxy if self.proxy else None
+
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, headers=headers, data=data, proxy=aio_proxy) as response:
+                    if response.status in [200, 201]:
                         logger.info("Apple Health Mission Completed (20,000 Points)")
                         return True
                     else:
-                        logger.error(f"Upload Failed [{response.status_code}]: {response.text}")
+                        err_text = await response.text()
+                        logger.error(f"Upload Failed [{response.status}]: {err_text}")
                         return False
         except Exception as e:
             logger.error(f"Error completing Apple Health mission: {e}")
