@@ -5,6 +5,7 @@ from typing import Optional, Tuple
 from app.api.base import BaseAPIClient
 from app.core.exceptions import APIError
 from app.database.models.devices import Device
+from app.utils.geo import proxy_to_language
 from app.utils.logging import get_logger
 
 logger = get_logger()
@@ -223,14 +224,15 @@ class DatahiveAPI(BaseAPIClient):
     async def get_worker(self, device: Device) -> dict:
         """Get worker information (extension calls this on startup)"""
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
-        
+        x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
+
         headers = {
-            'Accept': '*/*',
-            'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Connection': 'keep-alive',
-            'User-Agent': device.user_agent,
+            'accept': '*/*',
+            'accept-language': accept_lang,
             'authorization': f'Bearer {self.auth_token}',
             'content-type': 'application/json',
+            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
+            'user-agent': device.user_agent,
             'x-app-version': '0.2.5',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
@@ -242,7 +244,7 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': 'uk-UA'
+            'x-user-language': x_lang
         }
         return await self.send_request(
             request_type='GET',
@@ -254,22 +256,27 @@ class DatahiveAPI(BaseAPIClient):
     async def get_worker_uptime(self, device: Device) -> int:
         """Get worker uptime (extension calls this to track uptime)"""
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
-        
+        x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
+
         headers = {
-            'Content-Type': 'application/json',
-            'X-App-Version': '0.2.5',
-            'X-User-Agent': device.user_agent,
-            'X-Device-Type': 'extension',
-            'X-User-Language': 'en-US',
-            'X-Device-Name': device_name,
-            'X-Device-Model': device_model,
-            'X-Device-OS': device_os,
-            'Authorization': f'Bearer {self.auth_token}',
-            'X-Device-Id': device.device_id,
-            'X-CPU-Architecture': 'amd64',
-            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
-            'X-CPU-Processor-Count': '32',
-            'x-s': 'f'
+            'accept': '*/*',
+            'accept-language': accept_lang,
+            'authorization': f'Bearer {self.auth_token}',
+            'content-type': 'application/json',
+            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
+            'user-agent': device.user_agent,
+            'x-app-version': '0.2.5',
+            'x-cpu-architecture': device.cpu_architecture,
+            'x-cpu-model': device.cpu_model,
+            'x-cpu-processor-count': str(device.cpu_processor_count),
+            'x-device-id': device.device_id,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
+            'x-device-type': 'extension',
+            'x-s': 'f',
+            'x-user-agent': device.user_agent,
+            'x-user-language': x_lang
         }
 
         # Emulate extension's getWorkerUptime logic
@@ -284,22 +291,27 @@ class DatahiveAPI(BaseAPIClient):
     async def get_configuration(self, device: Device) -> dict:
         """Get global configuration (extension calls this at startup)"""
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
-        
+        x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
+
         headers = {
-            'Content-Type': 'application/json',
-            'X-App-Version': '0.2.5',
-            'X-User-Agent': device.user_agent,
-            'X-Device-Type': 'extension',
-            'X-User-Language': 'en-US',
-            'X-Device-Name': device_name,
-            'X-Device-Model': device_model,
-            'X-Device-OS': device_os,
-            'Authorization': f'Bearer {self.auth_token}',
-            'X-Device-Id': device.device_id,
-            'X-CPU-Architecture': 'amd64',
-            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
-            'X-CPU-Processor-Count': '32',
-            'x-s': 'f'
+            'accept': '*/*',
+            'accept-language': accept_lang,
+            'authorization': f'Bearer {self.auth_token}',
+            'content-type': 'application/json',
+            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
+            'user-agent': device.user_agent,
+            'x-app-version': '0.2.5',
+            'x-cpu-architecture': device.cpu_architecture,
+            'x-cpu-model': device.cpu_model,
+            'x-cpu-processor-count': str(device.cpu_processor_count),
+            'x-device-id': device.device_id,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
+            'x-device-type': 'extension',
+            'x-s': 'f',
+            'x-user-agent': device.user_agent,
+            'x-user-language': x_lang
         }
 
         return await self.send_request(
@@ -312,22 +324,27 @@ class DatahiveAPI(BaseAPIClient):
     async def get_worker_ip_metadata(self, device: Device) -> dict:
         """Get worker IP metadata (extension calls this for UI)"""
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
-        
+        x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
+
         headers = {
-            'Content-Type': 'application/json',
-            'X-App-Version': '0.2.5',
-            'X-User-Agent': device.user_agent,
-            'X-Device-Type': 'extension',
-            'X-User-Language': 'en-US',
-            'X-Device-Name': device_name,
-            'X-Device-Model': device_model,
-            'X-Device-OS': device_os,
-            'Authorization': f'Bearer {self.auth_token}',
-            'X-Device-Id': device.device_id,
-            'X-CPU-Architecture': 'amd64',
-            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
-            'X-CPU-Processor-Count': '32',
-            'x-s': 'f'
+            'accept': '*/*',
+            'accept-language': accept_lang,
+            'authorization': f'Bearer {self.auth_token}',
+            'content-type': 'application/json',
+            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
+            'user-agent': device.user_agent,
+            'x-app-version': '0.2.5',
+            'x-cpu-architecture': device.cpu_architecture,
+            'x-cpu-model': device.cpu_model,
+            'x-cpu-processor-count': str(device.cpu_processor_count),
+            'x-device-id': device.device_id,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
+            'x-device-type': 'extension',
+            'x-s': 'f',
+            'x-user-agent': device.user_agent,
+            'x-user-language': x_lang
         }
 
         return await self.send_request(
@@ -340,15 +357,15 @@ class DatahiveAPI(BaseAPIClient):
         """Send ping with device information"""
         # Parse UserAgent to get dynamic device info
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
-        
+        x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
+
         headers = {
-            'Accept': '*/*',
-            'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Connection': 'keep-alive',
-            'Origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
-            'User-Agent': device.user_agent,
+            'accept': '*/*',
+            'accept-language': accept_lang,
             'authorization': f'Bearer {self.auth_token}',
             'content-type': 'application/json',
+            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
+            'user-agent': device.user_agent,
             'x-app-version': '0.2.5',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
@@ -360,7 +377,7 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': 'uk-UA'
+            'x-user-language': x_lang
         }
         return await self.send_request(
             request_type='POST',
@@ -373,14 +390,15 @@ class DatahiveAPI(BaseAPIClient):
         """Request task for execution (API endpoint uses 'job')"""
         # Parse UserAgent to get dynamic device info
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
-        
+        x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
+
         headers = {
-            'Accept': '*/*',
-            'Accept-Language': 'uk-UA,uk;q=0.9,en-US;q=0.8,en;q=0.7',
-            'Connection': 'keep-alive',
-            'User-Agent': device.user_agent,
+            'accept': '*/*',
+            'accept-language': accept_lang,
             'authorization': f'Bearer {self.auth_token}',
             'content-type': 'application/json',
+            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
+            'user-agent': device.user_agent,
             'x-app-version': '0.2.5',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
@@ -392,7 +410,7 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': 'uk-UA'
+            'x-user-language': x_lang
         }
         return await self.send_request(
             request_type='GET',
@@ -404,23 +422,27 @@ class DatahiveAPI(BaseAPIClient):
     async def complete_task(self, device: Device, task_id: str, json_data: dict):
         """Complete task execution (API endpoint uses 'job')"""
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
-        
+        x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
+
         headers = {
-            'Content-Type': 'application/json',
-            'X-App-Version': '0.2.5',
-            'X-User-Agent': device.user_agent,
-            'X-Device-Type': 'extension',
-            'X-User-Language': 'en-US',
-            'X-Device-Name': device_name,
-            'X-Device-Model': device_model,
-            'X-Device-OS': device_os,
-            'Authorization': f'Bearer {self.auth_token}',
-            'X-Device-Id': device.device_id,
-            'X-CPU-Architecture': 'amd64',
-            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
-            'X-CPU-Processor-Count': '32',
+            'accept': '*/*',
+            'accept-language': accept_lang,
+            'authorization': f'Bearer {self.auth_token}',
+            'content-type': 'application/json',
+            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
+            'user-agent': device.user_agent,
+            'x-app-version': '0.2.5',
+            'x-cpu-architecture': device.cpu_architecture,
+            'x-cpu-model': device.cpu_model,
+            'x-cpu-processor-count': str(device.cpu_processor_count),
+            'x-device-id': device.device_id,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
+            'x-device-type': 'extension',
             'x-s': 'f',
-            'Origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb'
+            'x-user-agent': device.user_agent,
+            'x-user-language': x_lang
         }
 
         # Ensure correct JSON structure for completion
@@ -441,23 +463,27 @@ class DatahiveAPI(BaseAPIClient):
     async def report_error(self, device: Device, task_id: str, error: str, metadata: dict = None, result: dict = None):
         """Report task execution error (API endpoint uses 'job/:id/error')"""
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
-        
+        x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
+
         headers = {
-            'Content-Type': 'application/json',
-            'X-App-Version': '0.2.5',
-            'X-User-Agent': device.user_agent,
-            'X-Device-Type': 'extension',
-            'X-User-Language': 'en-US',
-            'X-Device-Name': device_name,
-            'X-Device-Model': device_model,
-            'X-Device-OS': device_os,
-            'Authorization': f'Bearer {self.auth_token}',
-            'X-Device-Id': device.device_id,
-            'X-CPU-Architecture': 'amd64',
-            'X-CPU-Model': 'AMD Ryzen 9 7950X 16-Core Processor',
-            'X-CPU-Processor-Count': '32',
+            'accept': '*/*',
+            'accept-language': accept_lang,
+            'authorization': f'Bearer {self.auth_token}',
+            'content-type': 'application/json',
+            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
+            'user-agent': device.user_agent,
+            'x-app-version': '0.2.5',
+            'x-cpu-architecture': device.cpu_architecture,
+            'x-cpu-model': device.cpu_model,
+            'x-cpu-processor-count': str(device.cpu_processor_count),
+            'x-device-id': device.device_id,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
+            'x-device-type': 'extension',
             'x-s': 'f',
-            'Origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb'
+            'x-user-agent': device.user_agent,
+            'x-user-language': x_lang
         }
 
         # Extension sends: {error: i, metadata: t||{}, result: o||{}, context: "extension"}

@@ -1,0 +1,6 @@
+# wallets.txt
+# Format: email:solana_private_key
+# One entry per line
+#
+# Examples:
+# user@gmail.com:4XVGcNDX8cG2Cwsay2PLBH2TQETCBxCda8KyhAdbFEMb...

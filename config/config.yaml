@@ -1,74 +1,66 @@
 # Application settings
 application_settings:
-  database_url: "postgres://user:password@localhost:5432/db_name"
+  database_url: "postgres://<USER>:<PASSWORD>@localhost:5432/<DATABASE>"
   threads: 1
   check_uniqueness_of_proxies: true
 
 # Threading configuration
 threads:
-  registration: 1    # MUST BE 1! Multiple threads will cause rate limits
-  farming: 100       # Number of threads for farming process
+  registration: 1    # MUST BE 1 — rate limit protection
+  farming: 200       # Async coroutines per process
 
 # Multiprocess farming settings
 multiprocess_farming:
-  enabled: true                    # true = multiprocess mode, false = single process mode
-  max_processes: 4                 # 0 = auto-detect (CPU count - 1), or set specific number
+  enabled: true                    # true = multiprocess mode, false = single process
+  max_processes: 4                 # 0 = auto-detect (CPU count - 1)
 
 # Farm settings
 farm_settings:
-  max_devices_per_batch: 600  # Maximum devices to process per batch
-  max_concurrent_tasks: 250   # Maximum concurrent farming tasks
-  device_task_timeout: 60     # Device task timeout in seconds
+  max_devices_per_batch: 1000
+  max_concurrent_tasks: 400
+  device_task_timeout: 60
 
 # Device settings
 device_settings:
   active_devices_per_account:
-    min: 1  # Minimum devices per account
-    max: 3  # Maximum devices per account
+    min: 1
+    max: 3
 
-# Referral code settings (Datahive)
+# Referral code settings
 referral_code_settings:
-  source: "db"  # "db" = random from database, "file" = random from referral_codes.txt, "static" = use static_referral_code
-  static_referral_code: ""  # Used when source: "static" (if empty, registration proceeds without referral code)
+  source: "db"  # "db" | "file" | "static"
+  static_referral_code: ""
 
 delay_before_start:
-  min: 60  # MINIMUM 60 seconds! Lower values cause rate limits
-  max: 180
-
-# Sleep delay between testing consecutive accounts or tasks
-sleep_before_next_task:
   min: 16
   max: 88
 
-# Retry settings
+sleep_before_next_task:
+  min: 120
+  max: 160
+
 retry:
-  delay_seconds: 10  # Delay between retries (in seconds)
-  max_registration_attempts: 5  # Maximum registration attempts
-  max_farm_attempts: 5  # Maximum farm attempts
-  proxy_rotation: true  # Enable proxy rotation on exhausted retries
-  proxy_rotation_after_timeouts: 3  # Rotate proxy after N consecutive timeouts (0 = disabled)
+  delay_seconds: 15
+  max_registration_attempts: 5
+  max_farm_attempts: 5
+  proxy_rotation: true
+  proxy_rotation_after_timeouts: 3
 
-# Misc settings
-shuffle_accounts: true # shuffle accounts before starting the module
+shuffle_accounts: true
 
-  # Redirect email settings (optional)
-# Use this if you want to use a single email account to receive all verification emails
+# Optional: single catch-all mailbox for registration OTPs
 redirect_settings:
-  enable: false              # Enable redirect email
-  email: "your_email@gmail.com"                  # Redirect email address
-  password: "your_app_password"                  # Redirect email password
-  imap_server: "imap.gmail.com"                  # IMAP server for redirect email
-  
-# IMAP settings for email validation
+  enable: false
+  email: ""
+  password: ""
+  imap_server: "imap.gmail.com"
+
 imap_settings:
-  use_proxy_for_imap: false  # Use proxy for IMAP connections
-  timeout: 30                # Email validation timeout in seconds
-  
-  # Optional: Use single IMAP server for all accounts
+  use_proxy_for_imap: false
+  timeout: 30
   use_single_imap:
     enable: false
     imap_server: "imap.gmail.com"
-  # IMAP servers mapping by email domain
   servers:
     gmail.com: imap.gmail.com
     yahoo.com: imap.mail.yahoo.com
@@ -84,8 +76,5 @@ imap_settings:
     gazeta.pl: imap.gazeta.pl
     rambler.ru: imap.rambler.ru
 
-
-
-# Logging settings
 logging:
-  level: "INFO"  # Available levels: DEBUG, INFO, WARNING, ERROR, CRITICAL
+  level: "INFO"  # DEBUG / INFO / WARNING / ERROR / CRITICAL
