@@ -61,7 +61,7 @@ class RegistrationModule:
                 logger.error(f"Registration failed (APIError): {error}", self.email)
                 if api:
                     await api.close()
-                await self.results_manager.save_registration_result(self.email, False)
+                await self.results_manager.save_registration_result(self.email, self.email_password, False)
                 return False
             except Exception as error:
                 error_str = str(error)

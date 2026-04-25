@@ -1,6 +1,6 @@
 
 import asyncio
-from app.database import initialize_database, close_connections
+from app.database import initialize_database, close_database
 from tortoise import Tortoise
 
 async def run_migration():
@@ -27,7 +27,7 @@ async def run_migration():
     else:
         print("Column last_initialized_at already exists.")
 
-    await close_connections()
+    await close_database()
 
 if __name__ == "__main__":
     asyncio.run(run_migration())

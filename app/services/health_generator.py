@@ -72,7 +72,8 @@ def generate_unique_health_export(base_zip_path, output_zip_path, profile_id):
     logger.info(f"Generating Health payload for Profile {profile_id} (Shift: {global_time_shift}m, Val: {global_val_factor*100:.1f}%)")
 
     # We need a temp file for the XML streaming process
-    temp_xml_path = tempfile.mktemp(suffix=".xml")
+    fd, temp_xml_path = tempfile.mkstemp(suffix=".xml")
+    os.close(fd)
     
     try:
         with zipfile.ZipFile(base_zip_path, 'r') as z_in:
@@ -148,7 +149,7 @@ def generate_unique_health_export(base_zip_path, output_zip_path, profile_id):
                                     elem.attrib['value'] = mutate_value(elem.attrib['value'], global_val_factor)
                                 
                                 # Write element to file manually to avoid memory buildup
-                                f_out.write(ET.tostring(elem, encoding='utf-8'))
+                                f_out.write(ET.tostring(elem, encoding='unicode').encode('utf-8'))
                                 f_out.write(b'\n')
                                 
                                 # CRITICAL: Clear the element from RAM

@@ -21,17 +21,16 @@ class DatabaseManager:
         self.initialized = True
     
     async def save_account(
-        self, 
+        self,
         email: str,
         email_password: Optional[str] = None,
         user_id: Optional[str] = None,
-        auth_token: Optional[str] = None, 
+        auth_token: Optional[str] = None,
         invite_code: Optional[str] = None,
-        imap_server: Optional[str] = None
     ) -> bool:
         try:
             account = await Account.get_or_none(email=email)
-            
+
             if account is None:
                 account = await Account.create(
                     email=email,
@@ -39,7 +38,6 @@ class DatabaseManager:
                     user_id=user_id,
                     auth_token=auth_token,
                     invite_code=invite_code,
-                    imap_server=imap_server
                 )
             else:
                 if email_password is not None:
@@ -50,8 +48,6 @@ class DatabaseManager:
                     account.auth_token = auth_token
                 if invite_code is not None:
                     account.invite_code = invite_code
-                if imap_server is not None:
-                    account.imap_server = imap_server
                 await account.save()
             
             return True
@@ -70,7 +66,6 @@ class DatabaseManager:
                     "user_id": account.user_id,
                     "auth_token": account.auth_token,
                     "invite_code": account.invite_code,
-                    "imap_server": account.imap_server
                 }
             return None
         except Exception as e:
@@ -123,7 +118,6 @@ class DatabaseManager:
                     "user_id": account.user_id,
                     "auth_token": account.auth_token,
                     "invite_code": account.invite_code,
-                    "imap_server": account.imap_server
                 }
                 for account in accounts
             ]
@@ -149,8 +143,6 @@ class DatabaseManager:
                     "user_id": account.user_id,
                     "auth_token": account.auth_token,
                     "invite_code": account.invite_code,
-                    "imap_server": account.imap_server,
-                    "twitter_bound": False
                 }
                 for account in accounts
             ]
@@ -167,7 +159,6 @@ class DatabaseManager:
                 user_id=account_data.get('user_id'),
                 auth_token=account_data.get('auth_token'),
                 invite_code=account_data.get('invite_code'),
-                imap_server=account_data.get('imap_server')
             )
             logger.debug(f"Created/updated account: {account.email}")
             return account

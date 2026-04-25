@@ -39,6 +39,8 @@ class FarmTask:
                 name, idx_str = part[:-1].split('[', 1)
                 cur = cur.get(name, {})
                 idx = int(idx_str)
+                if not isinstance(cur, (list, tuple)) or idx >= len(cur):
+                    return None
                 cur = cur[idx]
                 continue
             if isinstance(cur, dict):
@@ -150,8 +152,8 @@ class FarmTask:
                 seen.add(key)
                 unique.append(o)
             return unique
-        
-        return None
+
+        return ''
 
     def run_offscreen_like(self, html_text: str, rules: Dict[str, Any]):
         """Run HTML processing by rules"""

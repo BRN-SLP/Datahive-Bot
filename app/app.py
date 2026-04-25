@@ -355,9 +355,9 @@ class DatahiveApp:
                 
             logger.info(f"Binding wallet for {email}...")
             
-            timeout = getattr(self.settings.farm_settings, 'device_task_timeout', 60)
+            timeout = self.settings.farm_settings.get('device_task_timeout', 60)
             service = SolanaService(
-                session=None, 
+                session=None,
                 auth_token=account.auth_token,
                 proxy=account.proxy,
                 timeout=timeout
@@ -438,9 +438,9 @@ class DatahiveApp:
             device = await Device.filter(account=account).first()
             device_id = device.device_id if device else None
             
-            timeout = getattr(self.settings.farm_settings, 'device_task_timeout', 60)
+            timeout = self.settings.farm_settings.get('device_task_timeout', 60)
             service = MissionService(
-                session=None, 
+                session=None,
                 auth_token=account.auth_token,
                 proxy=account.proxy,
                 device_id=device_id,
@@ -549,5 +549,4 @@ class DatahiveApp:
     async def stop(self) -> None:
         self.running = False
         await self._cleanup()
-        logger.info("Application stopped")
         logger.info("Application stopped")

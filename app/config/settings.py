@@ -70,15 +70,19 @@ class DatahiveSettings:
     def delay_min(self) -> int:
         """Minimum delay"""
         if "delay_before_start" in self.data:
-            return self.data["delay_before_start"]["min"]
-        return self.data.get("attempts_and_delay_settings", {}).get("delay_before_start", {}).get("min", 60)
-    
+            raw = self.data["delay_before_start"]["min"]
+        else:
+            raw = self.data.get("attempts_and_delay_settings", {}).get("delay_before_start", {}).get("min", 60)
+        return max(60, raw)
+
     @property
     def delay_max(self) -> int:
         """Maximum delay"""
         if "delay_before_start" in self.data:
-            return self.data["delay_before_start"]["max"]
-        return self.data.get("attempts_and_delay_settings", {}).get("delay_before_start", {}).get("max", 180)
+            raw = self.data["delay_before_start"]["max"]
+        else:
+            raw = self.data.get("attempts_and_delay_settings", {}).get("delay_before_start", {}).get("max", 180)
+        return min(1200, max(self.delay_min, raw))
 
     @property
     def sleep_between_tasks_min(self) -> int:
@@ -142,8 +146,8 @@ class DatahiveSettings:
         # Standard config
         if "multiprocess_farming" in self.data and "max_processes" in self.data["multiprocess_farming"]:
             return self.data["multiprocess_farming"]["max_processes"]
-        # Paid config (farm_settings.cpu_thread_count)
-        return self.data.get("farm_settings", {}).get("cpu_thread_count", 0)
+        # Fallback: default to 4 processes
+        return self.data.get("farm_settings", {}).get("max_processes", 4)
     
     @property
     def imap_settings(self) -> Dict[str, Any]:
@@ -205,6 +209,13 @@ class DatahiveSettings:
             }
         })
     
+    @property
+    def cpu_thread_count(self) -> int:
+        configured = self.data.get("farm_settings", {}).get("cpu_thread_count", 0)
+        if configured > 0:
+            return configured
+        return max(1, os.cpu_count() or 1)
+
     @property
     def shuffle_accounts(self) -> bool:
         """Whether to shuffle accounts before processing"""

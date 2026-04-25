@@ -2,11 +2,6 @@
 
 Automated farming and account management bot for [Datahive.ai](https://datahive.ai) platform.
 
-> 🚨 **CRITICAL UPDATE (v1.1.0):**
-> **Mandatory Database Migration Required!**
-> If updating, you **MUST** run `python migrate.py` before starting the bot.
-> See [Database Migration](#-database-migration-v110-update) section below.
-
 > ⚠️ **Note:** 10% of registrations support the developer through referral codes. Thank you for using this free software!
 
 ---
@@ -15,13 +10,13 @@ Automated farming and account management bot for [Datahive.ai](https://datahive.
 
 | Software | Minimum Version | Recommended |
 | :--- | :--- | :--- |
-| Python | 3.9 | 3.11+ |
-| PostgreSQL | 16 | 16+ |
+| Python | 3.11 | 3.12 |
+| PostgreSQL | 16 | 16 |
 
 | Resource | Notes |
 | :--- | :--- |
-| **RAM** | Depends on accounts/threads. Start with 1GB |
-| **Disk** | 500MB+ (logs can grow) |
+| **RAM** | ~512MB base + ~1MB per active slot |
+| **CPU** | Parallelism = `min(cpu_thread_count, accounts)` |
 | **Proxies** | HTTP/SOCKS5. Test which work for your region |
 
 ---
@@ -71,19 +66,16 @@ See [VPS_SETUP.md](VPS_SETUP.md) for detailed instructions.
 
 ---
 
-## 🔄 Database Migration (v1.1.0 Update)
+## 🔄 Database Migration
 
-If you are updating from an older version, you **MUST** run the migration script to add the `last_initialized_at` column to your database. This is required for the new daily initialization logic.
+If updating from v1.0.x, run the migration script once before starting the bot:
 
 ```bash
-# Activate your environment
 source venv/bin/activate
-
-# Run the migration
 python migrate.py
 ```
 
-> **Note:** If you are installing for the first time, this is not required (the table is created correctly automatically), but running it won't hurt.
+> First-time installs do not need this — the schema is created automatically.
 
 ---
 
@@ -102,17 +94,11 @@ application_settings:
 
 ```yaml
 threads:
-  registration: 1   # MUST BE 1 (rate limit protection)
-  farming: 100      # Parallel farming threads
+  registration: 1    # MUST BE 1 (rate limit protection)
+  farming: 20        # Concurrent farming slots (capped to account count)
 ```
 
-### Multiprocess Farming
-
-```yaml
-multiprocess_farming:
-  enabled: true       # Enable multiprocess mode
-  max_processes: 3    # Number of processes (0 = auto)
-```
+> `farming` maps to `cpu_thread_count`. Actual slots = `min(cpu_thread_count, len(accounts))`.
 
 ### Farm Settings
 
@@ -127,24 +113,22 @@ farm_settings:
 
 ```yaml
 referral_code_settings:
-  source: "db"              # "db" = random from database
-                            # "file" = random from referral_codes.txt
-                            # "static" = use static_referral_code
-  static_referral_code: ""  # Used when source: "static"
+  source: "db"              # "db" | "file" | "static"
+  static_referral_code: ""
 ```
 
 ### Delays & Retry
 
 ```yaml
 delay_before_start:
-  min: 60
-  max: 180
+  min: 60     # enforced minimum — cannot go below 60s
+  max: 180    # enforced maximum — cannot exceed 1200s
 
 retry:
   delay_seconds: 10
   max_registration_attempts: 5
   proxy_rotation: true
-  proxy_rotation_after_timeouts: 3  # Rotate proxy after N consecutive timeouts
+  proxy_rotation_after_timeouts: 3
 ```
 
 ### Email Redirect (Optional)
@@ -166,7 +150,6 @@ imap_settings:
   servers:
     gmail.com: imap.gmail.com
     icloud.com: imap.mail.me.com
-    # ... more servers
 ```
 
 ---
@@ -194,13 +177,66 @@ python main.py
 
 **Menu:**
 
-- `Login accounts` - Register new accounts
-- `Farm accounts` - Start farming
-- `Export stats` - Export to CSV (results/stats/)
-- `Clear proxies` - Clear proxy assignments
-- `Exit`
+| Option | Description |
+| :--- | :--- |
+| `Login accounts` | Authenticate accounts via email OTP |
+| `Farm accounts` | Start the farming loop |
+| `Bind Solana Wallets` | Link Solana wallets to accounts |
+| `Execute Missions (Standard)` | Run standard mission set |
+| `Deploy Stealth Missions (Anti-Sybil) 🥷` | Run missions with anti-Sybil profile rotation |
+| `Export stats` | Export account stats to CSV (`results/stats/`) |
+| `Clear proxies` | Clear proxy assignments |
+| `Exit` | Exit the bot |
 
-For background running, see [VPS_SETUP.md](VPS_SETUP.md) (tmux/screen).
+For background running use tmux:
+
+```bash
+tmux new -s datahive
+python main.py
+# Ctrl+B then D to detach
+```
+
+---
+
+## ⚡ Performance Tuning
+
+### Architecture (v1.2.0)
+
+The bot runs a **single asyncio event loop** with N concurrent coroutines — no separate processes or threads.
+
+```
+Active farming slots = min(cpu_thread_count, len(accounts))
+```
+
+Accounts are distributed round-robin across slots. Each slot farms one account at a time.
+
+### Recommended Settings by VPS Size
+
+| VPS Specs | `cpu_thread_count` | Best for |
+| :--- | :--- | :--- |
+| 1 CPU / 1GB | 10–20 | Up to 100 accounts |
+| 2 CPU / 2GB | 20–40 | Up to 300 accounts |
+| 4 CPU / 4GB | 40–80 | Up to 600 accounts |
+| 8+ CPU / 8GB+ | 80–150 | 600+ accounts |
+
+### Example: 200 Accounts on 2 CPU / 2GB VPS
+
+```yaml
+threads:
+  registration: 1
+  farming: 30        # 30 concurrent slots
+
+farm_settings:
+  device_task_timeout: 60
+  max_devices_per_batch: 600
+  max_concurrent_tasks: 250
+
+delay_before_start:
+  min: 60
+  max: 300
+```
+
+> ⚠️ `registration` must **always** be `1` — Datahive rate-limits OTP delivery aggressively.
 
 ---
 
@@ -208,57 +244,38 @@ For background running, see [VPS_SETUP.md](VPS_SETUP.md) (tmux/screen).
 
 | Problem | Solution |
 | :--- | :--- |
-| Database error | Check PostgreSQL is running |
-| Rate limit 429 | Add more proxies |
-| OTP not found | Check IMAP settings |
+| Database connection error | Check PostgreSQL is running: `sudo systemctl status postgresql` |
+| Rate limit (HTTP 429) | Add more proxies; increase `delay_before_start.min` |
+| OTP not received | Check IMAP settings; verify email provider supports IMAP |
+| `IndexError` on task list | Update to v1.2.0 (fixed in this release) |
+| XML health report corrupt | Update to v1.2.0 (fixed in this release) |
+| Bot freezes at shutdown | Update to v1.2.0 (fixed in this release) |
 
 ---
 
-**Made with ❤️ by BRN.SLP**
+## 📋 Changelog
+
+### v1.2.0
+- Fixed `IndexError` when task list is shorter than expected slot count
+- Fixed XML health report — `ET.tostring` was injecting XML declaration per element
+- Fixed `tempfile.mktemp()` race condition — replaced with `mkstemp()`
+- Fixed database teardown — `close_database` now correctly calls Tortoise ORM shutdown
+- Fixed `imap_server` attribute error — field does not exist on `Account` model (removed from 5 places)
+- Fixed `save_registration_result` — missing `email_password` argument
+- Fixed duplicate `next_task_request_available = True` assignment in farming loop
+- Fixed `delay_min`/`delay_max` — values were not clamped, allowing sub-60s or unbounded delays
+- Fixed `farm_settings` attribute access — dict accessed via `getattr` instead of `.get()`
+- Added menu options: Bind Solana Wallets, Execute Missions (Standard), Deploy Stealth Missions (Anti-Sybil)
+- Replaced multiprocess farming with single-loop `ThreadFarmingManager` (asyncio coroutines)
+- Added `cpu_thread_count` config property
+
+### v1.1.0
+- Added `last_initialized_at` tracking for daily device initialization
+- Added `migrate.py` for schema upgrades
+
+### v1.0.0
+- Initial public release
 
 ---
 
-## ⚡ Performance Tuning
-
-### How Settings Work Together
-
-```text
-Real parallelism = min(farming_threads × max_processes, max_concurrent_tasks)
-```
-
-### Calculation Formula
-
-| Your Setup | Formula | Result |
-| :--- | :--- | :--- |
-| 500 accounts × 2 devices | = 1000 total devices | |
-| max_concurrent_tasks: 250 | 1000 ÷ 250 | 4 iterations |
-
-### Recommended Settings by VPS Size
-
-| VPS Specs | farming | max_processes | max_concurrent_tasks | Best for |
-| :--- | :--- | :--- | :--- | :--- |
-| 1 CPU / 1GB | 50 | 1 | 50 | Up to 200 accounts |
-| 2 CPU / 2GB | 100 | 2 | 150 | Up to 500 accounts |
-| 4 CPU / 4GB | 100 | 3 | 300 | Up to 1000 accounts |
-| 8+ CPU / 8GB+ | 150 | 4-6 | 500 | 1000+ accounts |
-
-### Example: 500 Accounts on 4 CPU / 4GB VPS
-
-```yaml
-threads:
-  registration: 1         # Always 1!
-  farming: 100
-
-multiprocess_farming:
-  enabled: true
-  max_processes: 3        # 3 parallel processes
-
-farm_settings:
-  max_devices_per_batch: 600
-  max_concurrent_tasks: 300   # 100 × 3 = 300
-  device_task_timeout: 60
-```
-
-**Result:** `100 threads × 3 processes = 300 parallel tasks`
-
-> ⚠️ **Important:** `registration` must ALWAYS be `1` with delay ≥60 seconds to avoid rate limits!
+**Made with ❤️ by BRN.SLP** | [Telegram](https://t.me/BoRn_SliPPy) | [GitHub](https://github.com/BRN-SLP)

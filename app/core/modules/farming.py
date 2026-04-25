@@ -118,7 +118,6 @@ class FarmingModule:
             return
         
         next_task_request_available = True
-        next_task_request_available = True
         if device.next_job_request_at:
             next_task_request_available = await verify_sleep(device.next_job_request_at)
         else:

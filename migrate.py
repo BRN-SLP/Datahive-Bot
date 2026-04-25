@@ -2,7 +2,7 @@
 import asyncio
 import sys
 from loguru import logger
-from app.database import initialize_database, close_connections
+from app.database import initialize_database, close_database
 from tortoise import Tortoise
 
 # Configure simplified logging
@@ -64,7 +64,7 @@ async def run_migration():
     except Exception as e:
         logger.error(f"❌ Critical error: {e}")
     finally:
-        await close_connections()
+        await close_database()
 
 if __name__ == "__main__":
     try:

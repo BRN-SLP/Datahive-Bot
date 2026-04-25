@@ -1,5 +1,5 @@
-from .settings import initialize_database, close_database as close_connections
-from .manager import get_db, DatabaseManager, init_database, close_database
+from .settings import initialize_database, close_database
+from .manager import get_db, DatabaseManager, init_database
 from .loader import (
     load_accounts,
     load_farm_accounts,
@@ -13,9 +13,8 @@ from .models.devices import Device
 
 __all__ = [
     'initialize_database',
-    'close_connections',
-    'init_database',
     'close_database',
+    'init_database',
     'get_db',
     'DatabaseManager',
     'load_accounts',

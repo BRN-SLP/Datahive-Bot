@@ -46,7 +46,7 @@ class DatahiveMenu:
         text_content.append("DATAHIVE FARM BOT", style="bold white")
         text_content.append("\n", style="default")
         text_content.append("Build: ", style="dim white")
-        text_content.append("1.0.0 (Public)", style="bold yellow")
+        text_content.append("1.2.0 (Public)", style="bold yellow")
         text_content.append("\n\n")
         text_content.append("Telegram: ", style="bold bright_blue")
         text_content.append("https://t.me/BoRn_SliPPy\n", style="bold cyan")
