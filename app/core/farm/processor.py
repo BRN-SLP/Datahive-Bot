@@ -15,7 +15,7 @@ import psutil
 from app.database.models.accounts import Account
 from app.database.models.devices import Device
 from app.models.device_fingerprints import DESKTOP_USER_AGENTS, CPU_FINGERPRINTS
-from app.utils.logging import get_logger
+from app.utils.logging import get_logger, short_id
 from app.utils.email import get_imap_server_for_email
 from app.utils.sleep import get_sleep_until, verify_sleep
 from app.utils.proxy import get_proxy_manager
@@ -45,9 +45,9 @@ class FarmProcessor:
     
     async def get_accounts(self, accounts: List[dict], batch_size: int = 2000) -> List[Account]:
         """Get accounts from database"""
-        logger.debug(f'Process: {self.process_id} | Preparing {len(accounts)} accounts...')
+        logger.debug(f'P:{self.process_id} | Preparing {len(accounts)} accounts...')
         if not accounts:
-            logger.warning(f'Process: {self.process_id} | No accounts provided for farming.')
+            logger.warning(f'P:{self.process_id} | No accounts provided for farming.')
             return []
         
         db_accounts = []
@@ -60,7 +60,7 @@ class FarmProcessor:
             db_accounts.extend(rows)
         
         if not db_accounts:
-            logger.warning(f'Process: {self.process_id} | No matching accounts found in DB.')
+            logger.warning(f'P:{self.process_id} | No matching accounts found in DB.')
             return []
         
         return db_accounts
@@ -72,18 +72,18 @@ class FarmProcessor:
         for account in prepared_accounts:
             if not account.auth_token:
                 logger.warning(
-                    f'Process: {self.process_id} | Account: {account.email} | Account not logged in. Skipped for farming.'
+                    f'P:{self.process_id} | {account.email} | Account not logged in. Skipped for farming.'
                 )
                 prepared_accounts.remove(account)
         
         if not prepared_accounts:
             logger.warning(
-                f'Process: {self.process_id} | No accounts prepared for farming. Most likely, accounts not logged in.'
+                f'P:{self.process_id} | No accounts prepared for farming. Most likely, accounts not logged in.'
             )
             return []
         
         logger.debug(
-            f'Process: {self.process_id} | Prepared {len(prepared_accounts)}/{len(accounts)} accounts.'
+            f'P:{self.process_id} | Prepared {len(prepared_accounts)}/{len(accounts)} accounts.'
         )
         return prepared_accounts
     
@@ -105,7 +105,7 @@ class FarmProcessor:
         
             if len(proxies) < nodes_to_create:
                 logger.warning(
-                    f'Process: {self.process_id} | Account: {account.email} | '
+                    f'P:{self.process_id} | {account.email} | '
                     f'Not enough proxies available ({len(proxies)}/{nodes_to_create}). Creating devices with available proxies.'
                 )
                 nodes_to_create = len(proxies)
@@ -131,7 +131,7 @@ class FarmProcessor:
                             active_device_proxy=proxy
                         )
                     except Exception as e:
-                        logger.debug(f'Process: {self.process_id} | Account: {account.email} | Device creation skipped: {e}')
+                        logger.debug(f'P:{self.process_id} | {account.email} | Device creation skipped: {e}')
                         pass
         
         nodes = await Device.get_devices_with_limit(account, limit)
@@ -158,7 +158,7 @@ class FarmProcessor:
     
     async def _prepare_devices(self, accounts: List[Account]) -> List[Device]:
         """Prepare devices for farming"""
-        logger.debug(f'Process: {self.process_id} | Preparing devices for {len(accounts)} accounts...')
+        logger.debug(f'P:{self.process_id} | Preparing devices for {len(accounts)} accounts...')
         tasks = []
         
         devices_per_account_min = self.settings.device_settings.get('active_devices_per_account', {}).get('min', 1)
@@ -178,14 +178,14 @@ class FarmProcessor:
                 filtered_results.extend(result)
         
         if errors:
-            logger.warning(f'Process: {self.process_id} | Errors (related to database): {errors}')
+            logger.warning(f'P:{self.process_id} | Errors (related to database): {errors}')
         
         if not filtered_results:
-            logger.warning(f'Process: {self.process_id} | No devices prepared for farming.')
+            logger.warning(f'P:{self.process_id} | No devices prepared for farming.')
             return []
         
         await self.set_delay_for_devices(filtered_results)
-        logger.debug(f'Process: {self.process_id} | Prepared {len(filtered_results)} devices for farming.')
+        logger.debug(f'P:{self.process_id} | Prepared {len(filtered_results)} devices for farming.')
         return filtered_results
     
     @staticmethod
@@ -254,8 +254,10 @@ class FarmProcessor:
             )
             
             if next_ping_available:
+                # Extension 0.2.6 polls /configuration every 30 min (setInterval(Wr, 1.8e6)).
+                # This slot fires the bot's equivalent: 24h full init OR 30-min config refresh.
                 await bot.process_farm(device=device, task='ping', process_id=process_id)
-                next_ping_at = get_sleep_until(minutes=2)
+                next_ping_at = get_sleep_until(minutes=30)
                 await device.update_device(next_ping_at=next_ping_at)
             
             if next_task_request_available:
@@ -267,9 +269,9 @@ class FarmProcessor:
             return None
         except Exception as error:
             if account:
-                logger.error(f'Process: {process_id} | Account: {account.email} | Unknown error while farming: {error}')
+                logger.error(f'P:{process_id} | {account.email} | Farm error: {error}')
             else:
-                logger.error(f'Process: {process_id} | Unknown error while farming with invalid account: {error}')
+                logger.error(f'P:{process_id} | Farm error (no account): {error}')
             return None
     
     async def _handle_device_timeout(self, device: Device, device_task_timeout: int):
@@ -313,22 +315,22 @@ class FarmProcessor:
                     self.device_timeout_counts[device_id] = 0
                     
                     logger.warning(
-                        f'Process: {self.process_id} | Account: {account_email} | Device: {device_id} | '
+                        f'P:{self.process_id} | {account_email} | dev:{short_id(device_id)} | '
                         f'Farming task timed out ({device_task_timeout}s) x{timeout_count} - proxy rotated'
                     )
                 else:
                     logger.error(
-                        f'Process: {self.process_id} | Account: {account_email} | Device: {device_id} | '
+                        f'P:{self.process_id} | {account_email} | dev:{short_id(device_id)} | '
                         f'Farming task timed out ({device_task_timeout}s) x{timeout_count} - no new proxy available'
                     )
             except Exception as e:
                 logger.error(
-                    f'Process: {self.process_id} | Account: {account_email} | Device: {device_id} | '
+                    f'P:{self.process_id} | {account_email} | dev:{short_id(device_id)} | '
                     f'Farming task timed out ({device_task_timeout}s) x{timeout_count} - proxy rotation failed: {e}'
                 )
         else:
             logger.error(
-                f'Process: {self.process_id} | Account: {account_email} | Device: {device_id} | '
+                f'P:{self.process_id} | {account_email} | dev:{short_id(device_id)} | '
                 f'Farming task timed out ({device_task_timeout}s) [{timeout_count}/{rotation_threshold}]'
             )
     
@@ -356,12 +358,12 @@ class FarmProcessor:
             try:
                 account = await device.account
                 logger.error(
-                    f'Process: {self.process_id} | Account: {account.email} | Device: {device.device_id} | '
+                    f'P:{self.process_id} | {account.email} | dev:{short_id(device.device_id)} | '
                     f'Error in device task: {error}'
                 )
             except Exception:
                 logger.error(
-                    f'Process: {self.process_id} | Device: {device.device_id} | '
+                    f'P:{self.process_id} | dev:{short_id(device.device_id)} | '
                     f'Error in device task (account fetch failed): {error}'
                 )
         finally:
@@ -377,7 +379,7 @@ class FarmProcessor:
         if not prepared_devices:
             return None
         
-        logger.debug(f'Process: {self.process_id} | DB-driven farming started')
+        logger.debug(f'P:{self.process_id} | DB-driven farming started')
         
         max_devices_per_batch = self.settings.farm_settings.get('max_devices_per_batch', 200)
         max_concurrent_tasks = self.settings.farm_settings.get('max_concurrent_tasks', 200)
@@ -411,10 +413,10 @@ class FarmProcessor:
                 
                 await asyncio.sleep(5)
         except asyncio.CancelledError:
-            logger.info(f'Process: {self.process_id} | Farming loop cancelled, shutting down...')
+            logger.info(f'P:{self.process_id} | Farming loop cancelled, shutting down...')
             return None
         except Exception as error:
-            logger.error(f'Process: {self.process_id} | Fatal error in farming loop: {error}')
+            logger.error(f'P:{self.process_id} | Fatal error in farming loop: {error}')
             return None
     
     async def run(self) -> None:

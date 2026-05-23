@@ -78,6 +78,55 @@ def parse_user_agent(user_agent: str) -> Tuple[str, str, str]:
     return device_name, device_model, device_os
 
 
+def _platform_token(device_os: str) -> str:
+    """Map device OS string → sec-ch-ua-platform value (quoted)."""
+    if "Windows" in device_os:
+        return '"Windows"'
+    if "macOS" in device_os or "Mac" in device_os:
+        return '"macOS"'
+    if "Linux" in device_os:
+        return '"Linux"'
+    if "Chrome OS" in device_os:
+        return '"Chrome OS"'
+    return '"Windows"'
+
+
+def _ext_sec_headers(device_os: str) -> dict:
+    """
+    Headers mimicking the real Datahive extension's background service worker fetch context.
+
+    curl_cffi `impersonate='chrome131'` adds navigation-style sec-fetch-* and
+    sec-ch-ua headers by default (sec-fetch-mode: navigate, sec-fetch-dest: document,
+    plus sec-fetch-user and upgrade-insecure-requests). The real extension makes
+    cors fetches from a service worker — different sec-* values, no navigation hints,
+    and NO sec-ch-ua-* headers on background SW requests (those only appear on popup tabs).
+
+    Verified via live mitmproxy capture (2026-05-23): all background SW requests
+    (/api/configuration, /api/job, /api/worker, /api/ping/uptime, /api/network/worker-ip)
+    lack sec-ch-ua-* headers. Bot emulates the SW context, never the popup.
+
+    These dict values OVERRIDE curl_cffi's defaults when passed in per-request
+    headers. `None` values explicitly suppress unwanted headers.
+
+    `device_os` is currently unused but kept in signature in case a popup-style
+    variant is needed later (sec-ch-ua-platform would be derived from it).
+    """
+    return {
+        # Extension SW fetch context (overrides navigation defaults from curl_cffi)
+        'sec-fetch-site': 'none',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-dest': 'empty',
+        'priority': 'u=1, i',
+        # Suppress all sec-ch-ua-* and navigation-only headers curl_cffi adds.
+        # Real extension background SW does NOT send these on api.datahive.ai.
+        'sec-ch-ua': None,
+        'sec-ch-ua-mobile': None,
+        'sec-ch-ua-platform': None,
+        'sec-fetch-user': None,
+        'upgrade-insecure-requests': None,
+    }
+
+
 def require_auth_token(func):
     """Decorator to check for auth_token presence"""
     @wraps(func)
@@ -221,8 +270,12 @@ class DatahiveAPI(BaseAPIClient):
         return response['items'][0]['alias']
     
     @require_auth_token
-    async def get_worker(self, device: Device) -> dict:
-        """Get worker information (extension calls this on startup)"""
+    async def activate_user(self, device: Device, access_code: str) -> dict:
+        """
+        Activate user account (extension 0.2.6+).
+        Required for new accounts that have user.isActivated=false in /worker response.
+        Existing accounts created before 0.2.6 rollout are pre-activated server-side.
+        """
         device_name, device_model, device_os = parse_user_agent(device.user_agent)
         x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
 
@@ -233,7 +286,7 @@ class DatahiveAPI(BaseAPIClient):
             'content-type': 'application/json',
             'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
             'user-agent': device.user_agent,
-            'x-app-version': '0.2.5',
+            'x-app-version': '0.2.6',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
@@ -244,7 +297,52 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': x_lang
+            'x-user-language': x_lang,
+            **_ext_sec_headers(device_os),
+        }
+        return await self.send_request(
+            request_type='POST',
+            headers=headers,
+            url='https://api.datahive.ai/api/user/activate',
+            json_data={'accessCode': access_code}
+        )
+
+    @require_auth_token
+    async def get_worker(self, device: Device) -> dict:
+        """Get worker information (extension calls this on startup).
+
+        Returns dict with shape:
+            {id, deviceId, userId, type, archived,
+             user: {id, email, points, isActivated},
+             metadata: {ip, clientVersion, userAgent, region, ...},
+             points24h, activitySlotExpiresAt}
+
+        In extension 0.2.6+, user.isActivated gates the job loop. For new accounts
+        that come back isActivated=false, POST /api/user/activate {accessCode} must
+        be called before any /api/job requests succeed.
+        """
+        device_name, device_model, device_os = parse_user_agent(device.user_agent)
+        x_lang, accept_lang = proxy_to_language(device.active_device_proxy)
+
+        headers = {
+            'accept': '*/*',
+            'accept-language': accept_lang,
+            'authorization': f'Bearer {self.auth_token}',
+            'content-type': 'application/json',
+            'user-agent': device.user_agent,
+            'x-app-version': '0.2.6',
+            'x-cpu-architecture': device.cpu_architecture,
+            'x-cpu-model': device.cpu_model,
+            'x-cpu-processor-count': str(device.cpu_processor_count),
+            'x-device-id': device.device_id,
+            'x-device-model': device_model,
+            'x-device-name': device_name,
+            'x-device-os': device_os,
+            'x-device-type': 'extension',
+            'x-s': 'f',
+            'x-user-agent': device.user_agent,
+            'x-user-language': x_lang,
+            **_ext_sec_headers(device_os),
         }
         return await self.send_request(
             request_type='GET',
@@ -263,9 +361,8 @@ class DatahiveAPI(BaseAPIClient):
             'accept-language': accept_lang,
             'authorization': f'Bearer {self.auth_token}',
             'content-type': 'application/json',
-            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
             'user-agent': device.user_agent,
-            'x-app-version': '0.2.5',
+            'x-app-version': '0.2.6',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
@@ -276,7 +373,8 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': x_lang
+            'x-user-language': x_lang,
+            **_ext_sec_headers(device_os),
         }
 
         # Emulate extension's getWorkerUptime logic
@@ -298,9 +396,8 @@ class DatahiveAPI(BaseAPIClient):
             'accept-language': accept_lang,
             'authorization': f'Bearer {self.auth_token}',
             'content-type': 'application/json',
-            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
             'user-agent': device.user_agent,
-            'x-app-version': '0.2.5',
+            'x-app-version': '0.2.6',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
@@ -311,7 +408,8 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': x_lang
+            'x-user-language': x_lang,
+            **_ext_sec_headers(device_os),
         }
 
         return await self.send_request(
@@ -331,9 +429,8 @@ class DatahiveAPI(BaseAPIClient):
             'accept-language': accept_lang,
             'authorization': f'Bearer {self.auth_token}',
             'content-type': 'application/json',
-            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
             'user-agent': device.user_agent,
-            'x-app-version': '0.2.5',
+            'x-app-version': '0.2.6',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
@@ -344,7 +441,8 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': x_lang
+            'x-user-language': x_lang,
+            **_ext_sec_headers(device_os),
         }
 
         return await self.send_request(
@@ -366,7 +464,7 @@ class DatahiveAPI(BaseAPIClient):
             'content-type': 'application/json',
             'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
             'user-agent': device.user_agent,
-            'x-app-version': '0.2.5',
+            'x-app-version': '0.2.6',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
@@ -377,7 +475,8 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': x_lang
+            'x-user-language': x_lang,
+            **_ext_sec_headers(device_os),
         }
         return await self.send_request(
             request_type='POST',
@@ -397,9 +496,8 @@ class DatahiveAPI(BaseAPIClient):
             'accept-language': accept_lang,
             'authorization': f'Bearer {self.auth_token}',
             'content-type': 'application/json',
-            'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
             'user-agent': device.user_agent,
-            'x-app-version': '0.2.5',
+            'x-app-version': '0.2.6',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
@@ -410,7 +508,8 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': x_lang
+            'x-user-language': x_lang,
+            **_ext_sec_headers(device_os),
         }
         return await self.send_request(
             request_type='GET',
@@ -431,7 +530,7 @@ class DatahiveAPI(BaseAPIClient):
             'content-type': 'application/json',
             'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
             'user-agent': device.user_agent,
-            'x-app-version': '0.2.5',
+            'x-app-version': '0.2.6',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
@@ -442,7 +541,8 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': x_lang
+            'x-user-language': x_lang,
+            **_ext_sec_headers(device_os),
         }
 
         # Ensure correct JSON structure for completion
@@ -472,7 +572,7 @@ class DatahiveAPI(BaseAPIClient):
             'content-type': 'application/json',
             'origin': 'chrome-extension://bonfdkhbkkdoipfojcnimjagphdnfedb',
             'user-agent': device.user_agent,
-            'x-app-version': '0.2.5',
+            'x-app-version': '0.2.6',
             'x-cpu-architecture': device.cpu_architecture,
             'x-cpu-model': device.cpu_model,
             'x-cpu-processor-count': str(device.cpu_processor_count),
@@ -483,7 +583,8 @@ class DatahiveAPI(BaseAPIClient):
             'x-device-type': 'extension',
             'x-s': 'f',
             'x-user-agent': device.user_agent,
-            'x-user-language': x_lang
+            'x-user-language': x_lang,
+            **_ext_sec_headers(device_os),
         }
 
         # Extension sends: {error: i, metadata: t||{}, result: o||{}, context: "extension"}

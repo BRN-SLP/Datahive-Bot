@@ -8,13 +8,31 @@ from app.core.farm.task import FarmTask
 from app.database import get_db
 from app.database.models.accounts import Account
 from app.database.models.devices import Device
-from app.utils.logging import get_logger
+from app.utils.logging import get_logger, short_id
 from app.utils.proxy import get_proxy_manager
 from app.utils.shutdown import is_shutdown_requested
 from app.utils.email import EmailValidator, LinkExtractor
 from app.config.settings import get_settings
 
 logger = get_logger()
+
+
+def _task_data_preview(fields: dict, max_len: int = 60) -> str:
+    """Build a compact one-line summary of extracted task fields."""
+    parts = []
+    for key, val in fields.items():
+        if isinstance(val, list):
+            parts.append(f"{key}: [{len(val)} items]")
+        elif isinstance(val, dict):
+            parts.append(f"{key}: {{...}}")
+        elif val:
+            text = str(val).strip()
+            total = len(text)
+            preview = text[:max_len] + ("…" if total > max_len else "")
+            parts.append(f'{key}: "{preview}" ({total} chars)')
+        else:
+            parts.append(f"{key}: empty")
+    return " | ".join(parts) if parts else "no fields"
 
 
 class Bot:
@@ -40,14 +58,14 @@ class Bot:
         account: Optional[Account] = None,
         device: Optional[Device] = None
     ) -> str:
-        """Compose a log prefix omitting process when not set"""
+        """Compose a compact log prefix: P:N | email | dev:xxxxxxxx"""
         parts = []
         if process_id is not None:
-            parts.append(f'Process: {process_id}')
+            parts.append(f'P:{process_id}')
         if account:
-            parts.append(f'{account.email}')
+            parts.append(account.email)
         if device:
-            parts.append(f'Device: {device.device_id}')
+            parts.append(f'dev:{short_id(device.device_id)}')
         return ' | '.join(parts)
     
     async def _get_or_assign_proxy(self) -> Optional[str]:
@@ -290,26 +308,28 @@ class Bot:
     
     async def process_task(self, device: Device, account: Account, api: DatahiveAPI, process_id: Optional[int] = None):
         """Process farming task"""
+        # Build log prefix BEFORE try so it stays defined for the except block.
+        prefix = self._build_log_prefix(process_id, account, device)
+        prefix_text = f'{prefix} | ' if prefix else ''
+
         try:
             task_data = await api.request_task(device=device)
-            prefix = self._build_log_prefix(process_id, account, device)
-            prefix_text = f'{prefix} | ' if prefix else ''
-            
+
             if task_data:
-                logger.info(f'{prefix_text}Received task, processing')
                 task_id = task_data.get('id')
                 rule_collection = task_data.get('ruleCollection') or {}
                 yaml_rules = rule_collection.get('yamlRules')
                 task_vars = task_data.get('vars') or {}
                 target_url = task_vars.get('url')
                 request_timeout = task_vars.get('timeout')
-                
+                task_short = task_id[:8] if task_id else '?'
+
                 if not task_id or not yaml_rules:
                     logger.warning(f'{prefix_text}Invalid task data received, skipping')
                     return
-                
+
                 target_page_html = await api.fetch_task_html(target_url, timeout=request_timeout)
-                
+
                 farm_task = FarmTask(
                     task_id=task_id,
                     target_url_html=target_page_html,
@@ -317,28 +337,27 @@ class Bot:
                     task_vars=task_vars
                 )
                 task_json_data = farm_task.build_task_json_data()
-                
+
                 await asyncio.sleep(random.randint(2, 5))
-                
-                # Safe navigation to avoid NoneType errors
+
                 # Collect fields from all outputs in the result
                 fields = {}
                 result = task_json_data.get('result') or {}
                 for out_key, out_val in result.items():
                     if isinstance(out_val, dict) and 'fields' in out_val:
                         fields.update(out_val.get('fields') or {})
-                
-                # Check if any field has content
+
                 has_data = any(str(v).strip() for v in fields.values())
-                
-                if not has_data:
-                    logger.info(f'{prefix_text}Page data not extracted, submitting empty result')
-                    logger.debug(f'{prefix_text}Failed URL: {target_url} | HTML length: {len(target_page_html) if target_page_html else 0}')
-                else:
-                    logger.info(f'{prefix_text}Page data extracted (fields: {list(fields.keys())}), completing task')
-                
+
                 await api.complete_task(device=device, task_id=task_id, json_data=task_json_data)
-                logger.success(f'{prefix_text}Task completed')
+
+                if has_data:
+                    field_count = len(fields)
+                    preview = _task_data_preview(fields)
+                    logger.success(f'{prefix_text}Task {task_short} ─ {field_count} field{"s" if field_count != 1 else ""} ─ {preview}')
+                else:
+                    logger.debug(f'{prefix_text}Task {task_short} ─ no data | URL: {target_url} | HTML: {len(target_page_html) if target_page_html else 0} chars')
+                    logger.info(f'{prefix_text}Task {task_short} ─ no data extracted')
             else:
                 logger.info(f'{prefix_text}No task available')
 
@@ -375,9 +394,12 @@ class Bot:
                 api = DatahiveAPI(proxy=proxy, auth_token=account.auth_token)
                 
                 if task == 'ping':
-                    logger.info(f'{prefix_text}Sending ping')
-                    
-                    # Emulate extension startup/heartbeat sequence ONLY IF 24h passed
+                    # Extension 0.2.6 has NO background ping. POST /api/ping was removed.
+                    # Real extension only polls /api/configuration every 30 min via setInterval(Wr, 1.8e6).
+                    # We reuse this scheduler slot to (a) refresh /configuration every 30 min,
+                    # and (b) do full init (worker/config/worker-ip) every 24h.
+
+                    # Full init every 24h
                     should_initialize = True
                     if device.last_initialized_at:
                         from datetime import datetime, timezone, timedelta
@@ -385,27 +407,41 @@ class Bot:
                         last_init = device.last_initialized_at
                         if last_init.tzinfo is None:
                             last_init = last_init.replace(tzinfo=timezone.utc)
-                        
+
                         if now - last_init < timedelta(hours=24):
                             should_initialize = False
-                    
+
                     if should_initialize:
                         try:
-                            logger.info(f'{prefix_text}Initializing device session (Worker/Config/IP)..')
-                            await api.get_worker(device=device)
+                            logger.info(f'{prefix_text}Device init (worker / config / ip)..')
+                            worker_data = await api.get_worker(device=device)
+
+                            # Extension 0.2.6: gate on user.isActivated
+                            user_info = (worker_data or {}).get('user') or {}
+                            if user_info.get('isActivated') is False:
+                                logger.warning(
+                                    f'{prefix_text}Account is not activated (isActivated=false). '
+                                    f'New 0.2.6 flow requires POST /api/user/activate with accessCode. '
+                                    f'Job requests may be refused by server.'
+                                )
+
                             await api.get_configuration(device=device)
                             await api.get_worker_ip_metadata(device=device)
-                            
+
                             # Mark as initialized in DB for persistence
                             from datetime import datetime, timezone
                             await device.update_device(last_initialized_at=datetime.now(timezone.utc))
                             self._initialized_devices.add(device.device_id)
                         except Exception as e:
                             logger.warning(f'{prefix_text}Initialization warning: {e}')
-                            pass  # Non-critical, continue with ping
-                        
-                    await api.send_ping(device=device)
-                    logger.success(f'{prefix_text}Ping sent')
+                            pass  # Non-critical
+                    else:
+                        # Between 24h init cycles — mimic extension's periodic Wr() poll of /configuration.
+                        try:
+                            await api.get_configuration(device=device)
+                            logger.debug(f'{prefix_text}Configuration refreshed')
+                        except Exception as e:
+                            logger.debug(f'{prefix_text}Config refresh skipped: {e}')
                 else:
                     logger.info(f'{prefix_text}Requesting task')
                     await self.process_task(device=device, account=account, api=api, process_id=process_id)
@@ -416,31 +452,31 @@ class Bot:
                 
             except APIError as error:
                 if hasattr(error, 'error_type') and error.error_type == APIErrorType.CLIENT_UPGRADE_REQUIRED:
-                    logger.warning(f'{prefix_text}Waiting for synchronization | Skipped until next cycle')
+                    logger.warning(f'{prefix_text}Client upgrade required, skipped')
                     if api:
                         await api.close()
                     return
-                
-                logger.error(f'{prefix_text}Error occurred during farming (APIError): {error} | Skipped until next cycle')
+
+                logger.error(f'{prefix_text}API error: {error} | skipped')
                 if api:
                     await api.close()
                 return
             except Exception as error:
                 error_str = str(error)
                 if 'Proxy Authentication Required' in error_str and not self.settings.proxy_rotation_enabled:
-                    logger.error(f'{prefix_text}Proxy authentication failed, please check your proxy settings and restart the bot | Skipped until next cycle')
+                    logger.error(f'{prefix_text}Proxy auth failed — check proxy settings | skipped')
                     if api:
                         await api.close()
                     return
-                
+
                 is_last_attempt = attempt == max_attempts - 1
                 if is_last_attempt:
-                    logger.error(f'{prefix_text}Max attempts reached, unable to farm | Skipped until next cycle | Last error: {str(error)}')
+                    logger.error(f'{prefix_text}Max retries reached, skipped | {error}')
                     if api:
                         await api.close()
                     return
-                
-                logger.error(f'{prefix_text}Error occurred during farming (Generic Exception): {error}')
+
+                logger.error(f'{prefix_text}Farm error: {error}')
                 await self._update_account_proxy(
                     device,
                     attempt,
