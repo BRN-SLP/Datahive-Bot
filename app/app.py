@@ -45,10 +45,6 @@ class DatahiveApp:
                     await self._handle_clear_proxies()
                 elif choice == 6:
                     await self._handle_bind_wallets()
-                elif choice == 7:
-                    await self._handle_missions()
-                elif choice == 8:
-                    await self._handle_stealth_missions()
                 elif choice == 5:
                     self.running = False
                     logger.info("Shutting down...")
@@ -374,120 +370,6 @@ class DatahiveApp:
                 fail_count += 1
                 
         logger.info(f"Wallet Binding Complete: {success_count} success, {skip_count} skipped, {fail_count} failed")
-
-    async def _handle_missions(self) -> None:
-        """Execute Datahive Amazon & Apple Health missions for eligible accounts."""
-        from app.database.models.accounts import Account
-        from app.services.mission_service import MissionService
-        import questionary
-        import os
-        
-        # We use a custom style to match the neon aesthetic
-        custom_style = questionary.Style([
-            ('qmark', 'fg:#673ab7 bold'),       
-            ('question', 'bold'),               
-            ('answer', 'fg:#f44336 bold'),      
-            ('pointer', 'fg:#00ffff bold'),     
-            ('highlighted', 'fg:#00ffff bold'), 
-            ('selected', 'fg:#cc5454')
-        ])
-
-        choice = await questionary.select(
-            "Which missions do you want to run?",
-            choices=[
-                "1. Amazon Extension (500 pts)",
-                "2. Apple Health Upload (20,000 pts)",
-                "3. Both Missions",
-                "Cancel"
-            ],
-            style=custom_style
-        ).unsafe_ask_async()
-        
-        if choice == "Cancel":
-            return
-            
-        run_amazon = choice in ["1. Amazon Extension (500 pts)", "3. Both Missions"]
-        run_health = choice in ["2. Apple Health Upload (20,000 pts)", "3. Both Missions"]
-        
-        base_zip_path = "config/data/export.zip"
-        if run_health and not os.path.exists(base_zip_path):
-            logger.error(f"Apple Health seed file not found at {base_zip_path}. Please place your export.zip there.")
-            return
-
-        # Load only logged in accounts
-        accounts = await Account.filter(auth_token__not_isnull=True).all()
-        
-        if not accounts:
-            logger.warning("No logged-in accounts found to execute missions.")
-            return
-            
-        self.menu.show_operation_info(f"Executing Missions ({choice.split('.')[1].strip()})", len(accounts))
-
-        for i, account in enumerate(accounts):
-            if i == 0:
-                delay = random.randint(self.settings.delay_min, self.settings.delay_max)
-                logger.info(f"Waiting {delay}s before starting missions...")
-                await asyncio.sleep(delay)
-            else:
-                delay = random.randint(self.settings.sleep_between_tasks_min, self.settings.sleep_between_tasks_max)
-                logger.info(f"Waiting {delay}s before missions for next account...")
-                await asyncio.sleep(delay)
-
-            logger.info(f"Processing missions for {account.email}...")
-            from app.database.models.devices import Device
-            device = await Device.filter(account=account).first()
-            device_id = device.device_id if device else None
-            
-            timeout = self.settings.farm_settings.get('device_task_timeout', 60)
-            service = MissionService(
-                session=None,
-                auth_token=account.auth_token,
-                proxy=account.proxy,
-                device_id=device_id,
-                timeout=timeout
-            )
-            
-            if run_amazon:
-                await service.complete_amazon_extension_mission()
-                if run_health:
-                    delay = random.randint(self.settings.sleep_between_tasks_min, self.settings.sleep_between_tasks_max)
-                    logger.info(f"Waiting {delay}s before Apple Health mission...")
-                    await asyncio.sleep(delay)
-                
-            if run_health:
-                # We use the internal DB ID or a hashed version of email to stay deterministic
-                await service.complete_apple_health_mission(str(account.id), base_zip_path)
-                await asyncio.sleep(2)
-                
-        logger.info("All selected missions completed.")
-
-    async def _handle_stealth_missions(self) -> None:
-        """Call the stealth deployer functionality directly from the menu"""
-        import os
-        import subprocess
-        
-        logger.info("Initializing Stealth Protocol... Please wait.")
-        print()
-        print("="*60)
-        print(" 🥷 ANTI-SYBIL STEALTH DEPLOYER")
-        print("="*60)
-        print(" This module will run in the foreground.")
-        print(" Press Ctrl+C at any time to safely pause and return to menu.")
-        print(" State is saved incrementally to allow for easy resumption.")
-        print("="*60)
-        print()
-        
-        try:
-            # We import the main function dynamically to avoid circular imports 
-            # and to keep its randomized execution context fully isolated.
-            from stealth_missions import run_stealth_protocol
-            await run_stealth_protocol()
-            input("\nStealth cycle complete. Press Enter to return to menu...")
-        except KeyboardInterrupt:
-            logger.info("Stealth deployer paused by user.")
-        except Exception as e:
-            logger.error(f"Error in stealth deployment: {e}")
-            input("Press Enter to continue...")
 
     async def _handle_clear_proxies(self) -> None:
         """Clear all proxy assignments from accounts in database"""

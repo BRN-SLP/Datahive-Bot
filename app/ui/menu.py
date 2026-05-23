@@ -46,7 +46,7 @@ class DatahiveMenu:
         text_content.append("DATAHIVE FARM BOT", style="bold white")
         text_content.append("\n", style="default")
         text_content.append("Build: ", style="dim white")
-        text_content.append("1.2.0 (Public)", style="bold yellow")
+        text_content.append("1.0.0 (Public)", style="bold yellow")
         text_content.append("\n\n")
         text_content.append("Telegram: ", style="bold bright_blue")
         text_content.append("https://t.me/BoRn_SliPPy\n", style="bold cyan")
@@ -93,25 +93,19 @@ class DatahiveMenu:
                 "Login accounts",
                 "Farm accounts",
                 "Bind Solana Wallets",
-                "Execute Missions (Standard)",
-                "Deploy Stealth Missions (Anti-Sybil) 🥷",
                 "Export stats",
                 "Clear proxies",
                 "Exit"
             ],
             style=custom_style
         ).unsafe_ask_async()
-        
+
         if choice == "Login accounts":
             return 1
         elif choice == "Farm accounts":
             return 2
         elif choice == "Bind Solana Wallets":
             return 6
-        elif choice == "Execute Missions (Standard)":
-            return 7
-        elif choice == "Deploy Stealth Missions (Anti-Sybil) 🥷":
-            return 8
         elif choice == "Export stats":
             return 3
         elif choice == "Clear proxies":
